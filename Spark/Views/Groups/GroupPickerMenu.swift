@@ -2,6 +2,8 @@ import SwiftUI
 
 struct GroupPickerMenu: View {
     @Bindable var model: GroupModel
+    var calendarModel: CalendarModel?
+    var notificationModel: NotificationModel?
     @State private var showingGroupSettings = false
 
     var body: some View {
@@ -46,7 +48,7 @@ struct GroupPickerMenu: View {
             .font(.subheadline)
         }
         .sheet(isPresented: $showingGroupSettings) {
-            GroupSettingsView(model: model)
+            GroupSettingsView(model: model, calendarModel: calendarModel, notificationModel: notificationModel)
         }
     }
 }

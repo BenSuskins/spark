@@ -3,6 +3,8 @@ import SwiftUI
 struct IdeasTab: View {
     @State var model: IdeasModel
     var homeModel: HomeModel?
+    var calendarModel: CalendarModel?
+    var notificationModel: NotificationModel?
     @State private var showingAddIdea = false
     @State private var ideaToPlan: Idea?
 
@@ -67,7 +69,7 @@ struct IdeasTab: View {
             }
             .sheet(item: $ideaToPlan) { idea in
                 if let homeModel {
-                    PlanIdeaSheet(idea: idea, homeModel: homeModel)
+                    PlanIdeaSheet(idea: idea, homeModel: homeModel, calendarModel: calendarModel, notificationModel: notificationModel)
                 }
             }
             .task {

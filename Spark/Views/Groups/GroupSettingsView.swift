@@ -2,6 +2,8 @@ import SwiftUI
 
 struct GroupSettingsView: View {
     @Bindable var model: GroupModel
+    var calendarModel: CalendarModel?
+    var notificationModel: NotificationModel?
     @State private var showingCreateGroup = false
     @State private var shareURL: URL?
     @State private var showingShareSheet = false
@@ -10,6 +12,34 @@ struct GroupSettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    if let calendarModel {
+                        NavigationLink {
+                            CalendarSettingsView(calendarModel: calendarModel)
+                        } label: {
+                            Label {
+                                Text("Calendar")
+                            } icon: {
+                                Image(systemName: calendarModel.isOptedIn ? "calendar.badge.checkmark" : "calendar")
+                                    .foregroundStyle(calendarModel.isOptedIn ? .green : .secondary)
+                            }
+                        }
+                    }
+
+                    if let notificationModel {
+                        NavigationLink {
+                            NotificationSettingsView(notificationModel: notificationModel)
+                        } label: {
+                            Label {
+                                Text("Notifications")
+                            } icon: {
+                                Image(systemName: notificationModel.isAuthorized ? "bell.badge.fill" : "bell.slash")
+                                    .foregroundStyle(notificationModel.isAuthorized ? .green : .secondary)
+                            }
+                        }
+                    }
+                }
+
                 Section("Your Groups") {
                     if model.groups.isEmpty {
                         ContentUnavailableView(

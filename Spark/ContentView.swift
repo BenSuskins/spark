@@ -4,12 +4,16 @@ struct ContentView: View {
     private let dateRepository: DateRepository = FakeDateRepository()
     private let groupRepository: GroupRepository = FakeGroupRepository()
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
+    private let calendarService: CalendarService = EventKitCalendarService()
+    private let notificationService: NotificationService = LocalNotificationService()
     private let currentUserIdentifier = "current-user"
 
     @State private var groupModel: GroupModel?
     @State private var homeModel: HomeModel?
     @State private var ideasModel: IdeasModel?
     @State private var discoverModel: DiscoverModel?
+    @State private var calendarModel: CalendarModel?
+    @State private var notificationModel: NotificationModel?
 
     var body: some View {
         TabView {
@@ -23,7 +27,7 @@ struct ContentView: View {
                     )
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
-                            GroupPickerMenu(model: groupModel)
+                            GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
                         }
                     }
                 }
@@ -37,11 +41,11 @@ struct ContentView: View {
 
             Tab("Ideas", systemImage: "lightbulb") {
                 if let ideasModel {
-                    IdeasTab(model: ideasModel, homeModel: homeModel)
+                    IdeasTab(model: ideasModel, homeModel: homeModel, calendarModel: calendarModel, notificationModel: notificationModel)
                         .toolbar {
                             if let groupModel {
                                 ToolbarItem(placement: .topBarLeading) {
-                                    GroupPickerMenu(model: groupModel)
+                                    GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
                                 }
                             }
                         }
@@ -57,6 +61,12 @@ struct ContentView: View {
             }
 
             groupModel = gm
+            calendarModel = CalendarModel(calendarService: calendarService)
+
+            let nm = NotificationModel(notificationService: notificationService)
+            await nm.requestAuthorization()
+            notificationModel = nm
+
             rebuildModels()
         }
         .onChange(of: groupModel?.selectedGroupIdentifier) { _, _ in
