@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeTab: View {
     @State var model: HomeModel
     let repository: DateRepository
+    let venueSearchService: VenueSearchService
     let groupIdentifiers: [String]
 
     var body: some View {
@@ -42,10 +43,10 @@ struct HomeTab: View {
             }
             .navigationTitle("Home")
             .navigationDestination(for: PlannedDate.self) { plannedDate in
-                DateDetailView(model: ItineraryModel(
-                    repository: repository,
-                    plannedDate: plannedDate
-                ))
+                DateDetailView(
+                    model: ItineraryModel(repository: repository, plannedDate: plannedDate),
+                    venueSearchService: venueSearchService
+                )
             }
             .task {
                 await model.loadDates(for: groupIdentifiers)
@@ -59,6 +60,7 @@ struct HomeTab: View {
     HomeTab(
         model: HomeModel(repository: repository, currentUserIdentifier: "preview-user"),
         repository: repository,
+        venueSearchService: FakeVenueSearchService(),
         groupIdentifiers: ["preview-group"]
     )
 }

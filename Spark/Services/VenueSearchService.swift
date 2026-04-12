@@ -1,7 +1,7 @@
 import Foundation
 import MapKit
 
-struct Venue: Identifiable, Sendable, Equatable {
+struct Venue: Identifiable, Sendable, Equatable, Hashable {
     let id: String
     let name: String
     let coordinate: CLLocationCoordinate2D
@@ -13,6 +13,10 @@ struct Venue: Identifiable, Sendable, Equatable {
             && lhs.name == rhs.name
             && lhs.category == rhs.category
             && lhs.address == rhs.address
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 

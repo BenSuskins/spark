@@ -3,6 +3,7 @@ import MapKit
 
 struct DateDetailView: View {
     @State var model: ItineraryModel
+    var venueSearchService: VenueSearchService?
     @State private var showingAddStep = false
 
     var body: some View {
@@ -47,7 +48,7 @@ struct DateDetailView: View {
             }
         }
         .sheet(isPresented: $showingAddStep) {
-            AddStepSheet(model: model)
+            AddStepSheet(model: model, venueSearchService: venueSearchService)
         }
         .task {
             await model.loadSteps()
