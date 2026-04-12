@@ -1,30 +1,64 @@
 import SwiftUI
 
 struct HomeTab: View {
+    @State var model: HomeModel
+    let repository: DateRepository
+    let groupIdentifiers: [String]
+
     var body: some View {
         NavigationStack {
             List {
                 Section("Upcoming") {
-                    ContentUnavailableView(
-                        "No Upcoming Dates",
-                        systemImage: "calendar",
-                        description: Text("Plan a date from your ideas list")
-                    )
+                    if model.upcomingDates.isEmpty {
+                        ContentUnavailableView(
+                            "No Upcoming Dates",
+                            systemImage: "calendar",
+                            description: Text("Plan a date from your ideas list")
+                        )
+                    } else {
+                        ForEach(model.upcomingDates) { plannedDate in
+                            NavigationLink(value: plannedDate) {
+                                DateCard(plannedDate: plannedDate)
+                            }
+                        }
+                    }
                 }
 
                 Section("Recent") {
-                    ContentUnavailableView(
-                        "No Past Dates",
-                        systemImage: "clock",
-                        description: Text("Your date history will appear here")
-                    )
+                    if model.pastDates.isEmpty {
+                        ContentUnavailableView(
+                            "No Past Dates",
+                            systemImage: "clock",
+                            description: Text("Your date history will appear here")
+                        )
+                    } else {
+                        ForEach(model.pastDates) { plannedDate in
+                            NavigationLink(value: plannedDate) {
+                                DateCard(plannedDate: plannedDate)
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Home")
+            .navigationDestination(for: PlannedDate.self) { plannedDate in
+                DateDetailView(model: ItineraryModel(
+                    repository: repository,
+                    plannedDate: plannedDate
+                ))
+            }
+            .task {
+                await model.loadDates(for: groupIdentifiers)
+            }
         }
     }
 }
 
 #Preview {
-    HomeTab()
+    let repository = FakeDateRepository()
+    HomeTab(
+        model: HomeModel(repository: repository, currentUserIdentifier: "preview-user"),
+        repository: repository,
+        groupIdentifiers: ["preview-group"]
+    )
 }

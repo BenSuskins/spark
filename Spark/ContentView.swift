@@ -1,16 +1,23 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var ideasModel = IdeasModel(
-        repository: FakeDateRepository(),
-        groupIdentifier: "default-group",
-        currentUserIdentifier: "current-user"
-    )
+    private let repository: DateRepository = FakeDateRepository()
+    private let groupIdentifiers = ["default-group"]
+    private let currentUserIdentifier = "current-user"
+
+    @State private var homeModel: HomeModel?
+    @State private var ideasModel: IdeasModel?
 
     var body: some View {
         TabView {
             Tab("Home", systemImage: "house") {
-                HomeTab()
+                if let homeModel {
+                    HomeTab(
+                        model: homeModel,
+                        repository: repository,
+                        groupIdentifiers: groupIdentifiers
+                    )
+                }
             }
 
             Tab("Discover", systemImage: "map") {
@@ -18,8 +25,18 @@ struct ContentView: View {
             }
 
             Tab("Ideas", systemImage: "lightbulb") {
-                IdeasTab(model: ideasModel)
+                if let ideasModel {
+                    IdeasTab(model: ideasModel)
+                }
             }
+        }
+        .task {
+            homeModel = HomeModel(repository: repository, currentUserIdentifier: currentUserIdentifier)
+            ideasModel = IdeasModel(
+                repository: repository,
+                groupIdentifier: groupIdentifiers.first!,
+                currentUserIdentifier: currentUserIdentifier
+            )
         }
     }
 }

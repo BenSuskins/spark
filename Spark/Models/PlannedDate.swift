@@ -5,7 +5,7 @@ enum DateStatus: String, Codable, Sendable {
     case completed
 }
 
-struct PlannedDate: Identifiable, Sendable, Equatable {
+struct PlannedDate: Identifiable, Sendable, Equatable, Hashable {
     let id: String
     let title: String
     let date: Date
