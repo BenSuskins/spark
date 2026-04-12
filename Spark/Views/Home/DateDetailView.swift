@@ -4,7 +4,9 @@ import MapKit
 struct DateDetailView: View {
     @State var model: ItineraryModel
     var venueSearchService: VenueSearchService?
+    var repository: DateRepository?
     @State private var showingAddStep = false
+    @State private var showingJournal = false
 
     var body: some View {
         List {
@@ -32,6 +34,21 @@ struct DateDetailView: View {
                             for index in indexSet {
                                 await model.deleteStep(model.steps[index])
                             }
+                        }
+                    }
+                }
+            }
+
+            if model.plannedDate.status == .completed || model.plannedDate.date < .now {
+                Section {
+                    if let repository {
+                        NavigationLink {
+                            JournalEntryView(model: JournalModel(
+                                repository: repository,
+                                plannedDate: model.plannedDate
+                            ))
+                        } label: {
+                            Label("Journal Entry", systemImage: "book")
                         }
                     }
                 }

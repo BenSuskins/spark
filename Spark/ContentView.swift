@@ -31,7 +31,7 @@ struct ContentView: View {
 
             Tab("Ideas", systemImage: "lightbulb") {
                 if let ideasModel {
-                    IdeasTab(model: ideasModel)
+                    IdeasTab(model: ideasModel, homeModel: homeModel)
                 }
             }
         }

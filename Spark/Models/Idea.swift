@@ -1,6 +1,6 @@
 import Foundation
 
-struct Idea: Identifiable, Sendable, Equatable {
+struct Idea: Identifiable, Sendable, Equatable, Hashable {
     let id: String
     let title: String
     let category: IdeaCategory

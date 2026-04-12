@@ -45,7 +45,8 @@ struct HomeTab: View {
             .navigationDestination(for: PlannedDate.self) { plannedDate in
                 DateDetailView(
                     model: ItineraryModel(repository: repository, plannedDate: plannedDate),
-                    venueSearchService: venueSearchService
+                    venueSearchService: venueSearchService,
+                    repository: repository
                 )
             }
             .task {

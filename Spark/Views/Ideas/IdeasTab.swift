@@ -2,7 +2,9 @@ import SwiftUI
 
 struct IdeasTab: View {
     @State var model: IdeasModel
+    var homeModel: HomeModel?
     @State private var showingAddIdea = false
+    @State private var ideaToPlan: Idea?
 
     var body: some View {
         NavigationStack {
@@ -20,6 +22,16 @@ struct IdeasTab: View {
                                     onUpvote: { Task { await model.toggleVote(on: idea, value: 1) } },
                                     onDownvote: { Task { await model.toggleVote(on: idea, value: -1) } }
                                 )
+                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                    if homeModel != nil {
+                                        Button {
+                                            ideaToPlan = idea
+                                        } label: {
+                                            Label("Plan", systemImage: "calendar.badge.plus")
+                                        }
+                                        .tint(.blue)
+                                    }
+                                }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         Task { await model.deleteIdea(idea) }
@@ -52,6 +64,11 @@ struct IdeasTab: View {
             }
             .sheet(isPresented: $showingAddIdea) {
                 AddIdeaSheet(model: model)
+            }
+            .sheet(item: $ideaToPlan) { idea in
+                if let homeModel {
+                    PlanIdeaSheet(idea: idea, homeModel: homeModel)
+                }
             }
             .task {
                 await model.loadIdeas()
