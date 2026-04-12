@@ -1,8 +1,14 @@
 import SwiftUI
 
 struct ContentView: View {
+    #if targetEnvironment(simulator)
     private let dateRepository: DateRepository = FakeDateRepository()
     private let groupRepository: GroupRepository = FakeGroupRepository()
+    #else
+    private let cloudKitManager = CloudKitManager()
+    private var dateRepository: DateRepository { CloudKitDateRepository(manager: cloudKitManager) }
+    private var groupRepository: GroupRepository { CloudKitGroupRepository(manager: cloudKitManager) }
+    #endif
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
     private let calendarService: CalendarService = EventKitCalendarService()
     private let notificationService: NotificationService = LocalNotificationService()
