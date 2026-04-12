@@ -13,6 +13,7 @@ protocol DateRepository: Sendable {
 
     func castVote(_ vote: Vote, on idea: Idea) async -> Result<Vote, SparkError>
     func removeVote(_ vote: Vote) async -> Result<Void, SparkError>
+    func votesForIdea(_ ideaIdentifier: String) async -> [Vote]
 
     func fetchItinerarySteps(for plannedDate: PlannedDate) async -> Result<[ItineraryStep], SparkError>
     func createItineraryStep(_ step: ItineraryStep, for plannedDate: PlannedDate) async -> Result<ItineraryStep, SparkError>

@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var ideasModel = IdeasModel(
+        repository: FakeDateRepository(),
+        groupIdentifier: "default-group",
+        currentUserIdentifier: "current-user"
+    )
+
     var body: some View {
         TabView {
             Tab("Home", systemImage: "house") {
@@ -12,7 +18,7 @@ struct ContentView: View {
             }
 
             Tab("Ideas", systemImage: "lightbulb") {
-                IdeasTab()
+                IdeasTab(model: ideasModel)
             }
         }
     }
