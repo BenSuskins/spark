@@ -5,6 +5,7 @@ struct HomeTab: View {
     let repository: DateRepository
     let venueSearchService: VenueSearchService
     let groupIdentifiers: [String]
+    var groupPickerMenu: GroupPickerMenu?
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,13 @@ struct HomeTab: View {
                 }
             }
             .navigationTitle("Home")
+            .toolbar {
+                if let groupPickerMenu {
+                    ToolbarItem(placement: .topBarLeading) {
+                        groupPickerMenu
+                    }
+                }
+            }
             .navigationDestination(for: PlannedDate.self) { plannedDate in
                 DateDetailView(
                     model: ItineraryModel(repository: repository, plannedDate: plannedDate),

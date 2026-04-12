@@ -5,6 +5,7 @@ struct IdeasTab: View {
     var homeModel: HomeModel?
     var calendarModel: CalendarModel?
     var notificationModel: NotificationModel?
+    var groupPickerMenu: GroupPickerMenu?
     @State private var showingAddIdea = false
     @State private var ideaToPlan: Idea?
 
@@ -56,6 +57,11 @@ struct IdeasTab: View {
             }
             .navigationTitle("Ideas")
             .toolbar {
+                if let groupPickerMenu {
+                    ToolbarItem(placement: .topBarLeading) {
+                        groupPickerMenu
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingAddIdea = true

@@ -1,18 +1,26 @@
 import SwiftUI
 
 struct ContentView: View {
-    #if targetEnvironment(simulator)
-    private let dateRepository: DateRepository = FakeDateRepository()
-    private let groupRepository: GroupRepository = FakeGroupRepository()
-    #else
-    private let cloudKitManager = CloudKitManager()
-    private var dateRepository: DateRepository { CloudKitDateRepository(manager: cloudKitManager) }
-    private var groupRepository: GroupRepository { CloudKitGroupRepository(manager: cloudKitManager) }
-    #endif
+    private let dateRepository: DateRepository
+    private let groupRepository: GroupRepository
+    private let cloudKitManager: CloudKitManager?
+
+    init() {
+        #if targetEnvironment(simulator)
+        dateRepository = FakeDateRepository()
+        groupRepository = FakeGroupRepository()
+        cloudKitManager = nil
+        #else
+        let manager = CloudKitManager()
+        cloudKitManager = manager
+        dateRepository = CloudKitDateRepository(manager: manager)
+        groupRepository = CloudKitGroupRepository(manager: manager)
+        #endif
+    }
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
     private let calendarService: CalendarService = EventKitCalendarService()
     private let notificationService: NotificationService = LocalNotificationService()
-    private let currentUserIdentifier = "current-user"
+    @State private var currentUserIdentifier = "current-user"
 
     @State private var groupModel: GroupModel?
     @State private var homeModel: HomeModel?
@@ -29,13 +37,9 @@ struct ContentView: View {
                         model: homeModel,
                         repository: dateRepository,
                         venueSearchService: venueSearchService,
-                        groupIdentifiers: groupModel.groupIdentifiers
+                        groupIdentifiers: groupModel.groupIdentifiers,
+                        groupPickerMenu: GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
                     )
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
-                        }
-                    }
                 }
             }
 
@@ -46,19 +50,24 @@ struct ContentView: View {
             }
 
             Tab("Ideas", systemImage: "lightbulb") {
-                if let ideasModel {
-                    IdeasTab(model: ideasModel, homeModel: homeModel, calendarModel: calendarModel, notificationModel: notificationModel)
-                        .toolbar {
-                            if let groupModel {
-                                ToolbarItem(placement: .topBarLeading) {
-                                    GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
-                                }
-                            }
-                        }
+                if let ideasModel, let groupModel {
+                    IdeasTab(
+                        model: ideasModel,
+                        homeModel: homeModel,
+                        calendarModel: calendarModel,
+                        notificationModel: notificationModel,
+                        groupPickerMenu: GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
+                    )
                 }
             }
         }
         .task {
+            if let cloudKitManager {
+                if case .success(let userId) = await cloudKitManager.currentUserIdentifier() {
+                    currentUserIdentifier = userId
+                }
+            }
+
             let gm = GroupModel(repository: groupRepository)
             await gm.loadGroups()
 
