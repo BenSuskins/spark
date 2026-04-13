@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeTab: View {
-    @State var model: HomeModel
+    var model: HomeModel
     let repository: DateRepository
     let venueSearchService: VenueSearchService
     let groupIdentifiers: [String]

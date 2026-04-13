@@ -5,6 +5,7 @@ struct JournalEntryView: View {
     @State private var rating: Int = 3
     @State private var notes: String = ""
     @State private var isEditing = false
+    @State private var showingError = false
 
     var body: some View {
         List {
@@ -40,7 +41,11 @@ struct JournalEntryView: View {
                     Button(model.hasEntry ? "Update" : "Save") {
                         Task {
                             await model.saveEntry(rating: rating, notes: notes)
-                            isEditing = false
+                            if model.error == nil {
+                                isEditing = false
+                            } else {
+                                showingError = true
+                            }
                         }
                     }
 
@@ -53,6 +58,11 @@ struct JournalEntryView: View {
             }
         }
         .navigationTitle("Journal")
+        .alert("Failed to Save Entry", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(model.error?.localizedDescription ?? "An unknown error occurred.")
+        }
         .task {
             await model.loadEntry()
             if let entry = model.entry {

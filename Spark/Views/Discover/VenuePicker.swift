@@ -10,6 +10,7 @@ struct VenuePicker: View {
     @State private var results: [Venue] = []
     @State private var isSearching = false
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var searchCoordinate = CLLocationCoordinate2D(latitude: 51.5074, longitude: -0.1278)
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,9 @@ struct VenuePicker: View {
                     ForEach(results) { venue in
                         Marker(venue.name, coordinate: venue.coordinate)
                     }
+                }
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    searchCoordinate = context.camera.centerCoordinate
                 }
                 .frame(height: 200)
 
@@ -60,8 +64,7 @@ struct VenuePicker: View {
 
     private func performSearch() async {
         isSearching = true
-        let coordinate = CLLocationCoordinate2D(latitude: 51.5074, longitude: -0.1278)
-        let result = await venueSearchService.search(query: searchText, near: coordinate)
+        let result = await venueSearchService.search(query: searchText, near: searchCoordinate)
 
         if case .success(let venues) = result {
             results = venues

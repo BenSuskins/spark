@@ -11,6 +11,7 @@ struct AddStepSheet: View {
     @State private var time = Date()
     @State private var notes = ""
     @State private var showingVenuePicker = false
+    @State private var showingError = false
 
     init(model: ItineraryModel, venueSearchService: VenueSearchService? = nil) {
         self.model = model
@@ -61,7 +62,11 @@ struct AddStepSheet: View {
                                 time: time,
                                 notes: notes
                             )
-                            dismiss()
+                            if model.error == nil {
+                                dismiss()
+                            } else {
+                                showingError = true
+                            }
                         }
                     }
                     .disabled(venueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -77,5 +82,10 @@ struct AddStepSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .alert("Failed to Add Stop", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(model.error?.localizedDescription ?? "An unknown error occurred.")
+        }
     }
 }

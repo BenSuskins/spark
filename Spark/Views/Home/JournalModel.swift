@@ -32,6 +32,7 @@ final class JournalModel {
     }
 
     func saveEntry(rating: Int, notes: String) async {
+        error = nil
         let clampedRating = min(5, max(1, rating))
 
         if let existing = entry {
@@ -44,8 +45,11 @@ final class JournalModel {
             )
 
             let result = await repository.updateJournalEntry(updated)
-            if case .success(let updatedEntry) = result {
+            switch result {
+            case .success(let updatedEntry):
                 entry = updatedEntry
+            case .failure(let saveError):
+                error = saveError
             }
         } else {
             let newEntry = JournalEntry(
@@ -57,8 +61,11 @@ final class JournalModel {
             )
 
             let result = await repository.createJournalEntry(newEntry, for: plannedDate)
-            if case .success(let created) = result {
+            switch result {
+            case .success(let created):
                 entry = created
+            case .failure(let saveError):
+                error = saveError
             }
         }
     }

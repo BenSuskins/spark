@@ -31,6 +31,7 @@ final class ItineraryModel {
     }
 
     func addStep(venueName: String, venueCoordinate: CLLocationCoordinate2D?, time: Date, notes: String) async {
+        error = nil
         let step = ItineraryStep(
             id: UUID().uuidString,
             plannedDateIdentifier: plannedDate.id,
@@ -43,16 +44,23 @@ final class ItineraryModel {
 
         let result = await repository.createItineraryStep(step, for: plannedDate)
 
-        if case .success = result {
+        switch result {
+        case .success:
             await loadSteps()
+        case .failure(let stepError):
+            error = stepError
         }
     }
 
     func deleteStep(_ step: ItineraryStep) async {
+        error = nil
         let result = await repository.deleteItineraryStep(step)
 
-        if case .success = result {
+        switch result {
+        case .success:
             await loadSteps()
+        case .failure(let stepError):
+            error = stepError
         }
     }
 }
