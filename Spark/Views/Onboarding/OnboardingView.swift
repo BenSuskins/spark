@@ -354,7 +354,7 @@ private struct OnboardingGroupPage: View {
                 } label: {
                     Text("I've been invited to a group")
                         .font(.subheadline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .padding(.bottom, 56)
