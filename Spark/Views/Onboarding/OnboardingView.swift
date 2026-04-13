@@ -316,7 +316,9 @@ private struct OnboardingGroupPage: View {
             Spacer()
 
             VStack(spacing: 12) {
-                Button(action: onCreateAndInvite) {
+                Button {
+                    onCreateAndInvite()
+                } label: {
                     Group {
                         if isCreating {
                             ProgressView().tint(.white)
@@ -333,10 +335,14 @@ private struct OnboardingGroupPage: View {
                 }
                 .disabled(!canCreate)
 
-                Button("Create Without Inviting", action: onCreate)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .disabled(!canCreate)
+                Button {
+                    onCreate()
+                } label: {
+                    Text("Create Without Inviting")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .disabled(!canCreate)
             }
             .padding(.bottom, 56)
         }
