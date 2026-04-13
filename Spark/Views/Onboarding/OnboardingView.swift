@@ -63,7 +63,8 @@ struct OnboardingView: View {
                 isCreating: isCreatingGroup,
                 error: groupError,
                 onCreateAndInvite: createAndInvite,
-                onCreate: createGroup
+                onCreate: createGroup,
+                onJoinInstead: complete
             )
             .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
         }
@@ -275,6 +276,7 @@ private struct OnboardingGroupPage: View {
     let error: SparkError?
     let onCreateAndInvite: () -> Void
     let onCreate: () -> Void
+    let onJoinInstead: () -> Void
 
     var canCreate: Bool {
         !isCreating && !groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -343,6 +345,17 @@ private struct OnboardingGroupPage: View {
                         .foregroundStyle(.secondary)
                 }
                 .disabled(!canCreate)
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                Button {
+                    onJoinInstead()
+                } label: {
+                    Text("I've been invited to a group")
+                        .font(.subheadline)
+                        .foregroundStyle(.accentColor)
+                }
             }
             .padding(.bottom, 56)
         }

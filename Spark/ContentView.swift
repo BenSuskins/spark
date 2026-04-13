@@ -125,6 +125,13 @@ struct ContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cloudKitShareAccepted)) { _ in
+            // An invite was accepted via the system share UI — reload so the shared group appears.
+            Task {
+                await groupModel?.loadGroups()
+                rebuildModels()
+            }
+        }
     }
 
     private func rebuildModels() {
