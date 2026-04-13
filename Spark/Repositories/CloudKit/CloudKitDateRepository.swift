@@ -31,6 +31,18 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
         }
     }
 
+    func updateIdea(_ idea: Idea) async -> Result<Idea, SparkError> {
+        let zoneID = manager.zoneID(for: idea.groupIdentifier)
+        let database = manager.databaseForZone(zoneID)
+        let record = idea.toRecord(in: zoneID)
+
+        let result = await manager.save(record, in: database)
+        return result.flatMap { saved in
+            guard let idea = Idea(record: saved) else { return .failure(.unknown("Failed to parse saved idea")) }
+            return .success(idea)
+        }
+    }
+
     func deleteIdea(_ idea: Idea) async -> Result<Void, SparkError> {
         let zoneID = manager.zoneID(for: idea.groupIdentifier)
         let database = manager.databaseForZone(zoneID)

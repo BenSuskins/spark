@@ -9,6 +9,7 @@ protocol DateRepository: Sendable {
 
     func fetchIdeas(for groupIdentifier: String) async -> Result<[Idea], SparkError>
     func createIdea(_ idea: Idea, in groupIdentifier: String) async -> Result<Idea, SparkError>
+    func updateIdea(_ idea: Idea) async -> Result<Idea, SparkError>
     func deleteIdea(_ idea: Idea) async -> Result<Void, SparkError>
 
     func castVote(_ vote: Vote, on idea: Idea) async -> Result<Vote, SparkError>

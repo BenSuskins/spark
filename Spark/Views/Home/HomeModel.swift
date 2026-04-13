@@ -59,6 +59,22 @@ final class HomeModel {
             groupIdentifier: idea.groupIdentifier
         )
 
-        return await repository.createPlannedDate(plannedDate, in: idea.groupIdentifier)
+        let result = await repository.createPlannedDate(plannedDate, in: idea.groupIdentifier)
+        if case .success = result {
+            var markedIdea = idea
+            markedIdea.isPlanned = true
+            _ = await repository.updateIdea(markedIdea)
+        }
+        return result
+    }
+
+    func deletePlannedDate(_ plannedDate: PlannedDate) async {
+        let result = await repository.deletePlannedDate(plannedDate)
+        if case .failure(let sparkError) = result {
+            error = sparkError
+            return
+        }
+        upcomingDates.removeAll { $0.id == plannedDate.id }
+        pastDates.removeAll { $0.id == plannedDate.id }
     }
 }

@@ -73,7 +73,9 @@ struct IdeasTab: View {
             .sheet(isPresented: $showingAddIdea) {
                 AddIdeaSheet(model: model)
             }
-            .sheet(item: $ideaToPlan) { idea in
+            .sheet(item: $ideaToPlan, onDismiss: {
+                Task { await model.loadIdeas() }
+            }) { idea in
                 if let homeModel {
                     PlanIdeaSheet(idea: idea, homeModel: homeModel, calendarModel: calendarModel, notificationModel: notificationModel)
                 }

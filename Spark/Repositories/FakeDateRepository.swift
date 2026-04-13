@@ -18,6 +18,12 @@ final class FakeDateRepository: DateRepository, @unchecked Sendable {
         return .success(idea)
     }
 
+    func updateIdea(_ idea: Idea) async -> Result<Idea, SparkError> {
+        ideas.removeAll { $0.id == idea.id }
+        ideas.append(idea)
+        return .success(idea)
+    }
+
     func deleteIdea(_ idea: Idea) async -> Result<Void, SparkError> {
         ideas.removeAll { $0.id == idea.id }
         votes.removeAll { $0.ideaIdentifier == idea.id }

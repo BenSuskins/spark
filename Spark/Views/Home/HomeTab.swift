@@ -22,6 +22,13 @@ struct HomeTab: View {
                             NavigationLink(value: plannedDate) {
                                 DateCard(plannedDate: plannedDate)
                             }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task { await model.deletePlannedDate(plannedDate) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }
@@ -37,6 +44,13 @@ struct HomeTab: View {
                         ForEach(model.pastDates) { plannedDate in
                             NavigationLink(value: plannedDate) {
                                 DateCard(plannedDate: plannedDate)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task { await model.deletePlannedDate(plannedDate) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
                         }
                     }

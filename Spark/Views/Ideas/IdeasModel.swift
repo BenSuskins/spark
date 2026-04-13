@@ -27,9 +27,10 @@ final class IdeasModel {
 
         switch result {
         case .success(let ideas):
+            let unplannedIdeas = ideas.filter { !$0.isPlanned }
             var grouped: [IdeaCategory: [Idea]] = [:]
             for category in IdeaCategory.allCases {
-                grouped[category] = ideas.filter { $0.category == category }
+                grouped[category] = unplannedIdeas.filter { $0.category == category }
             }
             ideasByCategory = grouped
 

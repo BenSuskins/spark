@@ -7,4 +7,5 @@ struct Idea: Identifiable, Sendable, Equatable, Hashable {
     let createdBy: String
     let createdDate: Date
     let groupIdentifier: String
+    var isPlanned: Bool = false
 }

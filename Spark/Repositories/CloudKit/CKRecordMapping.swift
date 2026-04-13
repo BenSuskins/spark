@@ -54,13 +54,16 @@ extension Idea {
               let groupIdentifier = record["groupIdentifier"] as? String
         else { return nil }
 
+        let isPlanned = record["isPlanned"] as? Bool ?? false
+
         self.init(
             id: record.recordID.recordName,
             title: title,
             category: category,
             createdBy: createdBy,
             createdDate: createdDate,
-            groupIdentifier: groupIdentifier
+            groupIdentifier: groupIdentifier,
+            isPlanned: isPlanned
         )
     }
 
@@ -72,6 +75,7 @@ extension Idea {
         record["createdBy"] = createdBy
         record["createdDate"] = createdDate
         record["groupIdentifier"] = groupIdentifier
+        record["isPlanned"] = isPlanned
         return record
     }
 }
