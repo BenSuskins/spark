@@ -6,6 +6,7 @@ struct AddIdeaSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var selectedCategory: IdeaCategory = .dining
+    @State private var showingError = false
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,11 @@ struct AddIdeaSheet: View {
                     Button("Add") {
                         Task {
                             await model.addIdea(title: title, category: selectedCategory)
-                            dismiss()
+                            if model.error == nil {
+                                dismiss()
+                            } else {
+                                showingError = true
+                            }
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -38,5 +43,10 @@ struct AddIdeaSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .alert("Failed to Add Idea", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(model.error?.localizedDescription ?? "An unknown error occurred.")
+        }
     }
 }

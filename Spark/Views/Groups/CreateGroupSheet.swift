@@ -5,6 +5,7 @@ struct CreateGroupSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var groupName = ""
+    @State private var showingError = false
 
     var body: some View {
         NavigationStack {
@@ -22,7 +23,11 @@ struct CreateGroupSheet: View {
                     Button("Create") {
                         Task {
                             await model.createGroup(name: groupName)
-                            dismiss()
+                            if model.error == nil {
+                                dismiss()
+                            } else {
+                                showingError = true
+                            }
                         }
                     }
                     .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -30,5 +35,10 @@ struct CreateGroupSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .alert("Failed to Create Group", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(model.error?.localizedDescription ?? "An unknown error occurred.")
+        }
     }
 }

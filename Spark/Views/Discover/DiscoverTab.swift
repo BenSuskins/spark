@@ -2,7 +2,7 @@ import SwiftUI
 import MapKit
 
 struct DiscoverTab: View {
-    @State var model: DiscoverModel
+    var model: DiscoverModel
     @State private var searchText = ""
     @State private var selectedVenue: Venue?
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
@@ -14,6 +14,9 @@ struct DiscoverTab: View {
                     Marker(venue.name, coordinate: venue.coordinate)
                         .tag(venue)
                 }
+            }
+            .onMapCameraChange(frequency: .onEnd) { context in
+                model.userCoordinate = context.camera.centerCoordinate
             }
             .overlay(alignment: .bottom) {
                 if !model.venues.isEmpty {

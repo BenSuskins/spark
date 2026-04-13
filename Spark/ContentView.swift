@@ -87,6 +87,9 @@ struct ContentView: View {
         .onChange(of: groupModel?.selectedGroupIdentifier) { _, _ in
             rebuildModels()
         }
+        .onChange(of: groupModel?.groupIdentifiers) { _, _ in
+            rebuildModels()
+        }
     }
 
     private func rebuildModels() {

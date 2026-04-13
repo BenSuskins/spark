@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct IdeasTab: View {
-    @State var model: IdeasModel
+    var model: IdeasModel
     var homeModel: HomeModel?
     var calendarModel: CalendarModel?
     var notificationModel: NotificationModel?

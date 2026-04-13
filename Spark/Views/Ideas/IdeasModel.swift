@@ -47,6 +47,7 @@ final class IdeasModel {
     }
 
     func addIdea(title: String, category: IdeaCategory) async {
+        error = nil
         let idea = Idea(
             id: UUID().uuidString,
             title: title,
@@ -58,8 +59,11 @@ final class IdeasModel {
 
         let result = await repository.createIdea(idea, in: groupIdentifier)
 
-        if case .success = result {
+        switch result {
+        case .success:
             await loadIdeas()
+        case .failure(let ideaError):
+            error = ideaError
         }
     }
 

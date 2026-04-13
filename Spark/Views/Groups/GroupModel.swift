@@ -36,10 +36,14 @@ final class GroupModel {
     }
 
     func createGroup(name: String) async {
+        error = nil
         let result = await repository.createGroup(name: name)
 
-        if case .success = result {
+        switch result {
+        case .success:
             await loadGroups()
+        case .failure(let groupError):
+            error = groupError
         }
     }
 
