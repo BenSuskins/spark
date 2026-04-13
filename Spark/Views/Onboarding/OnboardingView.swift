@@ -4,11 +4,13 @@ struct OnboardingView: View {
     let groupRepository: GroupRepository
     let calendarService: CalendarService
     let notificationService: NotificationService
-    let onComplete: (CalendarModel, NotificationModel) -> Void
+    let locationService: LocationService
+    let onComplete: (CalendarModel, NotificationModel, LocationModel) -> Void
 
     @State private var step = 0
     @State private var calendarModel: CalendarModel
     @State private var notificationModel: NotificationModel
+    @State private var locationModel: LocationModel
     @State private var groupName = "Our Dates"
     @State private var isCreatingGroup = false
     @State private var groupError: SparkError?
@@ -19,14 +21,17 @@ struct OnboardingView: View {
         groupRepository: GroupRepository,
         calendarService: CalendarService,
         notificationService: NotificationService,
-        onComplete: @escaping (CalendarModel, NotificationModel) -> Void
+        locationService: LocationService,
+        onComplete: @escaping (CalendarModel, NotificationModel, LocationModel) -> Void
     ) {
         self.groupRepository = groupRepository
         self.calendarService = calendarService
         self.notificationService = notificationService
+        self.locationService = locationService
         self.onComplete = onComplete
         self._calendarModel = State(initialValue: CalendarModel(calendarService: calendarService))
         self._notificationModel = State(initialValue: NotificationModel(notificationService: notificationService))
+        self._locationModel = State(initialValue: LocationModel(locationService: locationService))
     }
 
     var body: some View {
@@ -35,7 +40,7 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .animation(.easeInOut, value: step)
 
-            OnboardingPageIndicator(count: 4, current: step)
+            OnboardingPageIndicator(count: 5, current: step)
                 .padding(.bottom, 12)
         }
         .sheet(isPresented: $showingShareSheet, onDismiss: complete) {
@@ -56,6 +61,9 @@ struct OnboardingView: View {
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
         case 2:
             OnboardingCalendarPage(model: calendarModel) { nextStep() }
+                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+        case 3:
+            OnboardingLocationPage(model: locationModel) { nextStep() }
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
         default:
             OnboardingGroupPage(
@@ -111,7 +119,7 @@ struct OnboardingView: View {
     }
 
     private func complete() {
-        onComplete(calendarModel, notificationModel)
+        onComplete(calendarModel, notificationModel, locationModel)
     }
 }
 
@@ -257,6 +265,65 @@ private struct OnboardingCalendarPage: View {
                 }
 
                 if !model.isOptedIn {
+                    Button("Skip", action: onContinue)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.bottom, 56)
+        }
+        .padding(.horizontal, 32)
+    }
+}
+
+// MARK: - Location
+
+private struct OnboardingLocationPage: View {
+    let model: LocationModel
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 28) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.green)
+                    .symbolRenderingMode(.hierarchical)
+
+                VStack(spacing: 12) {
+                    Text("Nearby Venues")
+                        .font(.largeTitle.bold())
+
+                    Text("Allow location access to discover restaurants, activities, and date spots near you.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                if model.isAuthorized {
+                    Label("Location access enabled", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.headline)
+                }
+            }
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                if !model.isAuthorized {
+                    OnboardingPrimaryButton(title: "Enable Location", color: .green) {
+                        Task {
+                            await model.requestAuthorization()
+                            onContinue()
+                        }
+                    }
+                } else {
+                    OnboardingPrimaryButton(title: "Continue", color: .green, action: onContinue)
+                }
+
+                if !model.isAuthorized {
                     Button("Skip", action: onContinue)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

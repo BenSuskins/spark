@@ -20,6 +20,7 @@ struct ContentView: View {
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
     private let calendarService: CalendarService = EventKitCalendarService()
     private let notificationService: NotificationService = LocalNotificationService()
+    private let locationService: LocationService = CoreLocationService()
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var currentUserIdentifier = "current-user"
@@ -70,8 +71,9 @@ struct ContentView: View {
             OnboardingView(
                 groupRepository: groupRepository,
                 calendarService: calendarService,
-                notificationService: notificationService
-            ) { completedCalendar, completedNotif in
+                notificationService: notificationService,
+                locationService: locationService
+            ) { completedCalendar, completedNotif, _ in
                 calendarModel = completedCalendar
                 notificationModel = completedNotif
                 hasCompletedOnboarding = true
