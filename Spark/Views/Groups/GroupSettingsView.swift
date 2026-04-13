@@ -7,6 +7,7 @@ struct GroupSettingsView: View {
     @State private var showingCreateGroup = false
     @State private var shareURL: URL?
     @State private var showingShareSheet = false
+    @State private var shareError: SparkError?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -54,9 +55,12 @@ struct GroupSettingsView: View {
                                 onShare: {
                                     Task {
                                         let result = await model.shareGroup(group)
-                                        if case .success(let url) = result {
+                                        switch result {
+                                        case .success(let url):
                                             shareURL = url
                                             showingShareSheet = true
+                                        case .failure(let error):
+                                            shareError = error
                                         }
                                     }
                                 }
@@ -95,6 +99,16 @@ struct GroupSettingsView: View {
                     ShareSheet(url: shareURL)
                 }
             }
+            .alert("Sharing Failed", isPresented: Binding(
+                get: { shareError != nil },
+                set: { if !$0 { shareError = nil } }
+            )) {
+                Button("OK") { shareError = nil }
+            } message: {
+                if let shareError {
+                    Text(shareError.localizedDescription)
+                }
+            }
         }
     }
 }
@@ -119,7 +133,7 @@ struct GroupRow: View {
             Button(action: onShare) {
                 Image(systemName: "square.and.arrow.up")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
         }
     }
 }

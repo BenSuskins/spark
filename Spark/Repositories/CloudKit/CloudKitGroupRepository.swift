@@ -77,13 +77,15 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
         let zoneID = manager.zoneID(for: group.id)
         let recordID = CKRecord.ID(recordName: group.id, zoneID: zoneID)
 
-        let share = CKShare(rootRecord: CKRecord(recordType: RecordType.group, recordID: recordID))
-        share[CKShare.SystemFieldKey.title] = group.name
-        share.publicPermission = .readWrite
-
         do {
-            let saved = try await manager.privateDatabase.save(share)
-            if let share = saved as? CKShare, let url = share.url {
+            let rootRecord = try await manager.privateDatabase.record(for: recordID)
+            let share = CKShare(rootRecord: rootRecord)
+            share[CKShare.SystemFieldKey.title] = group.name
+            share.publicPermission = .readWrite
+
+            let result = try await manager.privateDatabase.modifyRecords(saving: [rootRecord, share], deleting: [])
+            let savedShare = result.saveResults.values.compactMap { try? $0.get() as? CKShare }.first
+            if let url = savedShare?.url {
                 return .success(url)
             }
             return .failure(.unknown("Failed to create share URL"))
