@@ -19,7 +19,7 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
             for zone in groupZones {
                 let database = manager.databaseForZone(zone.zoneID)
                 let predicate = NSPredicate(value: true)
-                let result = await manager.fetch(recordType: RecordType.group, predicate: predicate, in: database)
+                let result = await manager.fetch(recordType: RecordType.group, predicate: predicate, zoneID: zone.zoneID, in: database)
                 if case .success(let records) = result {
                     groups.append(contentsOf: records.compactMap(Group.init))
                 }
@@ -77,15 +77,26 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
         let zoneID = manager.zoneID(for: group.id)
         let recordID = CKRecord.ID(recordName: group.id, zoneID: zoneID)
 
-        let share = CKShare(rootRecord: CKRecord(recordType: RecordType.group, recordID: recordID))
-        share[CKShare.SystemFieldKey.title] = group.name
-        share.publicPermission = .readWrite
-
         do {
-            let saved = try await manager.privateDatabase.save(share)
-            if let share = saved as? CKShare, let url = share.url {
-                return .success(url)
+            // Must fetch the actual saved record — CKShare requires the real record with system fields
+            let rootRecord = try await manager.privateDatabase.record(for: recordID)
+
+            let share = CKShare(rootRecord: rootRecord)
+            share[CKShare.SystemFieldKey.title] = group.name
+            share.publicPermission = .readWrite
+
+            // Root record and share must be saved together in a single operation
+            let (saveResults, _) = try await manager.privateDatabase.modifyRecords(
+                saving: [rootRecord, share],
+                deleting: []
+            )
+
+            for (_, result) in saveResults {
+                if let savedShare = (try? result.get()) as? CKShare, let url = savedShare.url {
+                    return .success(url)
+                }
             }
+
             return .failure(.unknown("Failed to create share URL"))
         } catch {
             return .failure(.cloudKitError(error.localizedDescription))
@@ -97,14 +108,17 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
             let metadata = try await manager.container.shareMetadata(for: url)
             try await manager.container.accept(metadata)
 
-            // Fetch the shared group record
+            // Fetch the shared group record by querying all zones in the shared database
             let sharedDatabase = manager.container.sharedCloudDatabase
+            let sharedZones = try await sharedDatabase.allRecordZones()
+            let groupZones = sharedZones.filter { $0.zoneID.zoneName.hasPrefix("group-") }
             let predicate = NSPredicate(value: true)
-            let result = await manager.fetch(recordType: RecordType.group, predicate: predicate, in: sharedDatabase)
 
-            if case .success(let records) = result,
-               let group = records.compactMap(Group.init).last {
-                return .success(group)
+            for zone in groupZones {
+                let result = await manager.fetch(recordType: RecordType.group, predicate: predicate, zoneID: zone.zoneID, in: sharedDatabase)
+                if case .success(let records) = result, let group = records.compactMap(Group.init).first {
+                    return .success(group)
+                }
             }
 
             return .failure(.recordNotFound)

@@ -47,14 +47,20 @@ final class CloudKitManager: @unchecked Sendable {
         recordType: String,
         predicate: NSPredicate,
         sortDescriptors: [NSSortDescriptor]? = nil,
+        zoneID: CKRecordZone.ID? = nil,
         in database: CKDatabase
     ) async -> Result<[CKRecord], SparkError> {
         let query = CKQuery(recordType: recordType, predicate: predicate)
         query.sortDescriptors = sortDescriptors
 
         do {
-            let (results, _) = try await database.records(matching: query)
-            let records = results.compactMap { try? $0.1.get() }
+            let matchResults: [(CKRecord.ID, Result<CKRecord, Error>)]
+            if let zoneID {
+                (matchResults, _) = try await database.records(matching: query, inZoneWith: zoneID)
+            } else {
+                (matchResults, _) = try await database.records(matching: query)
+            }
+            let records = matchResults.compactMap { try? $0.1.get() }
             return .success(records)
         } catch let error as CKError {
             return .failure(mapError(error))

@@ -13,9 +13,9 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
     func fetchIdeas(for groupIdentifier: String) async -> Result<[Idea], SparkError> {
         let zoneID = manager.zoneID(for: groupIdentifier)
         let database = manager.databaseForZone(zoneID)
-        let predicate = NSPredicate(format: "groupIdentifier == %@", groupIdentifier)
+        let predicate = NSPredicate(value: true)
 
-        let result = await manager.fetch(recordType: RecordType.idea, predicate: predicate, in: database)
+        let result = await manager.fetch(recordType: RecordType.idea, predicate: predicate, zoneID: zoneID, in: database)
         return result.map { records in records.compactMap(Idea.init) }
     }
 
@@ -38,7 +38,7 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
 
         // Delete associated votes first
         let votePredicate = NSPredicate(format: "ideaIdentifier == %@", idea.id)
-        let votesResult = await manager.fetch(recordType: RecordType.vote, predicate: votePredicate, in: database)
+        let votesResult = await manager.fetch(recordType: RecordType.vote, predicate: votePredicate, zoneID: zoneID, in: database)
         if case .success(let voteRecords) = votesResult {
             for voteRecord in voteRecords {
                 _ = await manager.delete(voteRecord.recordID, in: database)
@@ -56,7 +56,7 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
 
         // Remove existing vote from same user on same idea
         let predicate = NSPredicate(format: "ideaIdentifier == %@ AND userIdentifier == %@", vote.ideaIdentifier, vote.userIdentifier)
-        let existingResult = await manager.fetch(recordType: RecordType.vote, predicate: predicate, in: database)
+        let existingResult = await manager.fetch(recordType: RecordType.vote, predicate: predicate, zoneID: zoneID, in: database)
         if case .success(let existing) = existingResult {
             for record in existing {
                 _ = await manager.delete(record.recordID, in: database)
@@ -96,7 +96,7 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
 
         for zone in allZones {
             let database = manager.databaseForZone(zone.zoneID)
-            let result = await manager.fetch(recordType: RecordType.vote, predicate: predicate, in: database)
+            let result = await manager.fetch(recordType: RecordType.vote, predicate: predicate, zoneID: zone.zoneID, in: database)
             if case .success(let records) = result {
                 allVotes.append(contentsOf: records.compactMap(Vote.init))
             }
@@ -109,13 +109,14 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
     func fetchUpcomingDates(for groupIdentifier: String) async -> Result<[PlannedDate], SparkError> {
         let zoneID = manager.zoneID(for: groupIdentifier)
         let database = manager.databaseForZone(zoneID)
-        let predicate = NSPredicate(format: "groupIdentifier == %@ AND status == %@ AND date >= %@",
-                                    groupIdentifier, DateStatus.planned.rawValue, NSDate())
+        let predicate = NSPredicate(format: "status == %@ AND date >= %@",
+                                    DateStatus.planned.rawValue, NSDate())
 
         let result = await manager.fetch(
             recordType: RecordType.plannedDate,
             predicate: predicate,
             sortDescriptors: [NSSortDescriptor(key: "date", ascending: true)],
+            zoneID: zoneID,
             in: database
         )
         return result.map { records in records.compactMap(PlannedDate.init) }
@@ -126,16 +127,15 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
         let database = manager.databaseForZone(zoneID)
 
         // Past dates: completed OR date in the past
-        let completedPredicate = NSPredicate(format: "groupIdentifier == %@ AND status == %@",
-                                             groupIdentifier, DateStatus.completed.rawValue)
-        let pastPredicate = NSPredicate(format: "groupIdentifier == %@ AND date < %@",
-                                        groupIdentifier, NSDate())
+        let completedPredicate = NSPredicate(format: "status == %@", DateStatus.completed.rawValue)
+        let pastPredicate = NSPredicate(format: "date < %@", NSDate())
         let predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [completedPredicate, pastPredicate])
 
         let result = await manager.fetch(
             recordType: RecordType.plannedDate,
             predicate: predicate,
             sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)],
+            zoneID: zoneID,
             in: database
         )
         return result.map { records in records.compactMap(PlannedDate.init) }
@@ -183,6 +183,7 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
             recordType: RecordType.itineraryStep,
             predicate: predicate,
             sortDescriptors: [NSSortDescriptor(key: "order", ascending: true)],
+            zoneID: zoneID,
             in: database
         )
         return result.map { records in records.compactMap(ItineraryStep.init) }
@@ -238,7 +239,7 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
         let database = manager.databaseForZone(zoneID)
         let predicate = NSPredicate(format: "plannedDateIdentifier == %@", plannedDate.id)
 
-        let result = await manager.fetch(recordType: RecordType.journalEntry, predicate: predicate, in: database)
+        let result = await manager.fetch(recordType: RecordType.journalEntry, predicate: predicate, zoneID: zoneID, in: database)
         return result.map { records in records.compactMap(JournalEntry.init).first }
     }
 
