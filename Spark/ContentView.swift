@@ -20,6 +20,8 @@ struct ContentView: View {
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
     private let calendarService: CalendarService = EventKitCalendarService()
     private let notificationService: NotificationService = LocalNotificationService()
+
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var currentUserIdentifier = "current-user"
 
     @State private var groupModel: GroupModel?
@@ -61,6 +63,20 @@ struct ContentView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: Binding(
+            get: { !hasCompletedOnboarding },
+            set: { _ in }
+        )) {
+            OnboardingView(
+                groupRepository: groupRepository,
+                calendarService: calendarService,
+                notificationService: notificationService
+            ) { completedCalendar, completedNotif in
+                calendarModel = completedCalendar
+                notificationModel = completedNotif
+                hasCompletedOnboarding = true
+            }
+        }
         .task {
             if let cloudKitManager {
                 if case .success(let userId) = await cloudKitManager.currentUserIdentifier() {
@@ -71,16 +87,26 @@ struct ContentView: View {
             let gm = GroupModel(repository: groupRepository)
             await gm.loadGroups()
 
-            if gm.groups.isEmpty {
+            // Only auto-create a fallback group for returning users if all groups were deleted.
+            // New users create their group during onboarding.
+            if gm.groups.isEmpty && hasCompletedOnboarding {
                 await gm.createGroup(name: "My Dates")
             }
 
             groupModel = gm
-            calendarModel = CalendarModel(calendarService: calendarService)
 
-            let nm = NotificationModel(notificationService: notificationService)
-            await nm.requestAuthorization()
-            notificationModel = nm
+            if calendarModel == nil {
+                calendarModel = CalendarModel(calendarService: calendarService)
+            }
+
+            if notificationModel == nil {
+                let nm = NotificationModel(notificationService: notificationService)
+                // Only request authorization for returning users — onboarding handles new users.
+                if hasCompletedOnboarding {
+                    await nm.requestAuthorization()
+                }
+                notificationModel = nm
+            }
 
             rebuildModels()
         }
@@ -89,6 +115,15 @@ struct ContentView: View {
         }
         .onChange(of: groupModel?.groupIdentifiers) { _, _ in
             rebuildModels()
+        }
+        .onChange(of: hasCompletedOnboarding) { _, newValue in
+            if newValue {
+                // Reload groups after onboarding creates the first group.
+                Task {
+                    await groupModel?.loadGroups()
+                    rebuildModels()
+                }
+            }
         }
     }
 
