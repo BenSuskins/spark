@@ -319,7 +319,7 @@ private struct OnboardingGroupPage: View {
                 Button {
                     onCreateAndInvite()
                 } label: {
-                    Group {
+                    ZStack {
                         if isCreating {
                             ProgressView().tint(.white)
                         } else {
