@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var discoverModel: DiscoverModel?
     @State private var calendarModel: CalendarModel?
     @State private var notificationModel: NotificationModel?
+    @State private var locationModel: LocationModel?
     @State private var networkMonitor = NetworkMonitor()
     @State private var syncManager: SyncManager?
 
@@ -87,9 +88,10 @@ struct ContentView: View {
                 calendarService: calendarService,
                 notificationService: notificationService,
                 locationService: locationService
-            ) { completedCalendar, completedNotif, _ in
+            ) { completedCalendar, completedNotif, completedLocation in
                 calendarModel = completedCalendar
                 notificationModel = completedNotif
+                locationModel = completedLocation
                 hasCompletedOnboarding = true
             }
         }
@@ -113,6 +115,10 @@ struct ContentView: View {
 
             if calendarModel == nil {
                 calendarModel = CalendarModel(calendarService: calendarService)
+            }
+
+            if locationModel == nil {
+                locationModel = LocationModel(locationService: locationService)
             }
 
             if notificationModel == nil {
@@ -162,7 +168,7 @@ struct ContentView: View {
 
     private var groupPickerMenu: GroupPickerMenu? {
         guard let groupModel else { return nil }
-        return GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
+        return GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel, locationModel: locationModel)
     }
 
     private func createModels() {

@@ -32,7 +32,7 @@ struct PlanIdeaSheet: View {
                 if didCreate {
                     Section {
                         Label("Date planned!", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(SparkColors.success)
                     }
                 }
             }

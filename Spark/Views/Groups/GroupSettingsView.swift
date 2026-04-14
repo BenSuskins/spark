@@ -4,6 +4,7 @@ struct GroupSettingsView: View {
     @Bindable var model: GroupModel
     var calendarModel: CalendarModel?
     var notificationModel: NotificationModel?
+    var locationModel: LocationModel?
     @State private var showingCreateGroup = false
     @State private var shareURL: URL?
     @State private var showingShareSheet = false
@@ -22,7 +23,7 @@ struct GroupSettingsView: View {
                                 Text("Calendar")
                             } icon: {
                                 Image(systemName: calendarModel.isOptedIn ? "calendar.badge.checkmark" : "calendar")
-                                    .foregroundStyle(calendarModel.isOptedIn ? .green : .secondary)
+                                    .foregroundStyle(calendarModel.isOptedIn ? SparkColors.success : .secondary)
                             }
                         }
                     }
@@ -35,8 +36,28 @@ struct GroupSettingsView: View {
                                 Text("Notifications")
                             } icon: {
                                 Image(systemName: notificationModel.isAuthorized ? "bell.badge.fill" : "bell.slash")
-                                    .foregroundStyle(notificationModel.isAuthorized ? .green : .secondary)
+                                    .foregroundStyle(notificationModel.isAuthorized ? SparkColors.success : .secondary)
                             }
+                        }
+                    }
+
+                    if let locationModel {
+                        Label {
+                            HStack {
+                                Text("Location")
+                                Spacer()
+                                if locationModel.isAuthorized {
+                                    Text("Enabled")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Button("Enable") {
+                                        Task { await locationModel.requestAuthorization() }
+                                    }
+                                }
+                            }
+                        } icon: {
+                            Image(systemName: locationModel.isAuthorized ? "location.fill" : "location.slash")
+                                .foregroundStyle(locationModel.isAuthorized ? SparkColors.success : .secondary)
                         }
                     }
                 }
@@ -76,7 +97,7 @@ struct GroupSettingsView: View {
                     }
                 }
             }
-            .navigationTitle("Groups")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

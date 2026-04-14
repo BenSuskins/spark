@@ -4,6 +4,7 @@ struct GroupPickerMenu: View {
     @Bindable var model: GroupModel
     var calendarModel: CalendarModel?
     var notificationModel: NotificationModel?
+    var locationModel: LocationModel?
     @State private var showingGroupSettings = false
 
     var body: some View {
@@ -37,7 +38,7 @@ struct GroupPickerMenu: View {
             Button {
                 showingGroupSettings = true
             } label: {
-                Label("Manage Groups", systemImage: "gear")
+                Label("Settings", systemImage: "gear")
             }
         } label: {
             HStack(spacing: 4) {
@@ -48,7 +49,7 @@ struct GroupPickerMenu: View {
             .font(.subheadline)
         }
         .sheet(isPresented: $showingGroupSettings) {
-            GroupSettingsView(model: model, calendarModel: calendarModel, notificationModel: notificationModel)
+            GroupSettingsView(model: model, calendarModel: calendarModel, notificationModel: notificationModel, locationModel: locationModel)
         }
     }
 }

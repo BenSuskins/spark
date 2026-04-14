@@ -8,7 +8,7 @@ struct CalendarSettingsView: View {
             Section {
                 if calendarModel.isOptedIn {
                     Label("Calendar access enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(SparkColors.success)
 
                     Button("Opt Out") {
                         calendarModel.optOut()

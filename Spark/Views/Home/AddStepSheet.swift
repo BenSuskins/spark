@@ -36,7 +36,7 @@ struct AddStepSheet: View {
 
                     if venueCoordinate != nil {
                         Label("Location selected", systemImage: "mappin.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(SparkColors.success)
                             .font(.caption)
                     }
                 }

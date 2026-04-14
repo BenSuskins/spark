@@ -39,7 +39,7 @@ struct VenueChip: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+        .background(isSelected ? SparkColors.accent.opacity(0.12) : SparkColors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

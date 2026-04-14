@@ -10,7 +10,7 @@ struct DateCard: View {
 
             HStack {
                 Image(systemName: plannedDate.status == .planned ? "calendar" : "checkmark.circle")
-                    .foregroundStyle(plannedDate.status == .planned ? .blue : .green)
+                    .foregroundStyle(plannedDate.status == .planned ? SparkColors.accent : SparkColors.success)
 
                 Text(plannedDate.date, style: .date)
                     .font(.subheadline)

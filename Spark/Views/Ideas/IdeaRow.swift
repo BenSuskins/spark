@@ -19,7 +19,7 @@ struct IdeaRow: View {
             HStack(spacing: 12) {
                 Button(action: onDownvote) {
                     Image(systemName: currentUserVote == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                        .foregroundStyle(currentUserVote == -1 ? .red : .secondary)
+                        .foregroundStyle(currentUserVote == -1 ? SparkColors.destructive : .secondary)
                 }
                 .buttonStyle(.plain)
 
@@ -30,7 +30,7 @@ struct IdeaRow: View {
 
                 Button(action: onUpvote) {
                     Image(systemName: currentUserVote == 1 ? "hand.thumbsup.fill" : "hand.thumbsup")
-                        .foregroundStyle(currentUserVote == 1 ? .green : .secondary)
+                        .foregroundStyle(currentUserVote == 1 ? SparkColors.accent : .secondary)
                 }
                 .buttonStyle(.plain)
             }

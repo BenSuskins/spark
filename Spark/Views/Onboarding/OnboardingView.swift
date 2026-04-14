@@ -135,12 +135,12 @@ private struct OnboardingWelcomePage: View {
             VStack(spacing: 28) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 80))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(SparkColors.accent)
                     .symbolRenderingMode(.hierarchical)
 
                 VStack(spacing: 12) {
                     Text("Welcome to Spark")
-                        .font(.largeTitle.bold())
+                        .sparkDisplayHero()
 
                     Text("Plan unforgettable dates together.\nGet ideas, vote, and make memories.")
                         .font(.body)
@@ -151,7 +151,8 @@ private struct OnboardingWelcomePage: View {
 
             Spacer()
 
-            OnboardingPrimaryButton(title: "Get Started", color: .accentColor, action: onContinue)
+            Button("Get Started", action: onContinue)
+                .buttonStyle(SparkPrimaryButtonStyle())
                 .padding(.bottom, 56)
         }
         .padding(.horizontal, 32)
@@ -171,12 +172,12 @@ private struct OnboardingNotificationsPage: View {
             VStack(spacing: 28) {
                 Image(systemName: "bell.badge.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(SparkColors.accent)
                     .symbolRenderingMode(.hierarchical)
 
                 VStack(spacing: 12) {
                     Text("Stay in the Loop")
-                        .font(.largeTitle.bold())
+                        .sparkDisplayHero()
 
                     Text("Get reminders before upcoming dates and prompts to write about your memories.")
                         .font(.body)
@@ -186,7 +187,7 @@ private struct OnboardingNotificationsPage: View {
 
                 if model.isAuthorized {
                     Label("Notifications enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(SparkColors.success)
                         .font(.headline)
                 }
             }
@@ -195,14 +196,16 @@ private struct OnboardingNotificationsPage: View {
 
             VStack(spacing: 12) {
                 if !model.isAuthorized {
-                    OnboardingPrimaryButton(title: "Enable Notifications", color: .orange) {
+                    Button("Enable Notifications") {
                         Task {
                             await model.requestAuthorization()
                             onContinue()
                         }
                     }
+                    .buttonStyle(SparkPrimaryButtonStyle())
                 } else {
-                    OnboardingPrimaryButton(title: "Continue", color: .orange, action: onContinue)
+                    Button("Continue", action: onContinue)
+                        .buttonStyle(SparkPrimaryButtonStyle())
                 }
 
                 if !model.isAuthorized {
@@ -230,12 +233,12 @@ private struct OnboardingCalendarPage: View {
             VStack(spacing: 28) {
                 Image(systemName: "calendar.badge.plus")
                     .font(.system(size: 80))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(SparkColors.accent)
                     .symbolRenderingMode(.hierarchical)
 
                 VStack(spacing: 12) {
                     Text("Sync with Calendar")
-                        .font(.largeTitle.bold())
+                        .sparkDisplayHero()
 
                     Text("Automatically add planned dates to your calendar so you never miss one.")
                         .font(.body)
@@ -245,7 +248,7 @@ private struct OnboardingCalendarPage: View {
 
                 if model.isOptedIn {
                     Label("Calendar access enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(SparkColors.success)
                         .font(.headline)
                 }
             }
@@ -254,14 +257,16 @@ private struct OnboardingCalendarPage: View {
 
             VStack(spacing: 12) {
                 if !model.isOptedIn {
-                    OnboardingPrimaryButton(title: "Enable Calendar", color: .blue) {
+                    Button("Enable Calendar") {
                         Task {
                             await model.requestAccess()
                             onContinue()
                         }
                     }
+                    .buttonStyle(SparkPrimaryButtonStyle())
                 } else {
-                    OnboardingPrimaryButton(title: "Continue", color: .blue, action: onContinue)
+                    Button("Continue", action: onContinue)
+                        .buttonStyle(SparkPrimaryButtonStyle())
                 }
 
                 if !model.isOptedIn {
@@ -289,12 +294,12 @@ private struct OnboardingLocationPage: View {
             VStack(spacing: 28) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(SparkColors.accent)
                     .symbolRenderingMode(.hierarchical)
 
                 VStack(spacing: 12) {
                     Text("Nearby Venues")
-                        .font(.largeTitle.bold())
+                        .sparkDisplayHero()
 
                     Text("Allow location access to discover restaurants, activities, and date spots near you.")
                         .font(.body)
@@ -304,7 +309,7 @@ private struct OnboardingLocationPage: View {
 
                 if model.isAuthorized {
                     Label("Location access enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(SparkColors.success)
                         .font(.headline)
                 }
             }
@@ -313,14 +318,16 @@ private struct OnboardingLocationPage: View {
 
             VStack(spacing: 12) {
                 if !model.isAuthorized {
-                    OnboardingPrimaryButton(title: "Enable Location", color: .green) {
+                    Button("Enable Location") {
                         Task {
                             await model.requestAuthorization()
                             onContinue()
                         }
                     }
+                    .buttonStyle(SparkPrimaryButtonStyle())
                 } else {
-                    OnboardingPrimaryButton(title: "Continue", color: .green, action: onContinue)
+                    Button("Continue", action: onContinue)
+                        .buttonStyle(SparkPrimaryButtonStyle())
                 }
 
                 if !model.isAuthorized {
@@ -356,12 +363,12 @@ private struct OnboardingGroupPage: View {
             VStack(spacing: 28) {
                 Image(systemName: "person.2.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(SparkColors.accent)
                     .symbolRenderingMode(.hierarchical)
 
                 VStack(spacing: 12) {
                     Text("Create Your Group")
-                        .font(.largeTitle.bold())
+                        .sparkDisplayHero()
 
                     Text("Name your group and invite your partner to start planning together.")
                         .font(.body)
@@ -398,9 +405,9 @@ private struct OnboardingGroupPage: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(canCreate ? Color.purple : Color.secondary.opacity(0.3))
+                    .background(canCreate ? SparkColors.accent : Color.secondary.opacity(0.3))
                     .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(Capsule())
                 }
                 .disabled(!canCreate)
 
@@ -431,24 +438,6 @@ private struct OnboardingGroupPage: View {
 }
 
 // MARK: - Shared Components
-
-private struct OnboardingPrimaryButton: View {
-    let title: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(color)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-        }
-    }
-}
 
 private struct OnboardingPageIndicator: View {
     let count: Int

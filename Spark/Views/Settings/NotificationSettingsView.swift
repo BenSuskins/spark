@@ -8,7 +8,7 @@ struct NotificationSettingsView: View {
             Section {
                 if notificationModel.isAuthorized {
                     Label("Notifications enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(SparkColors.success)
                 } else {
                     Label("Notifications not enabled", systemImage: "bell.badge.slash")
 

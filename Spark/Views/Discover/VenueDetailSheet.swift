@@ -50,7 +50,7 @@ struct VenueDetailSheet: View {
                     } label: {
                         if addedSuccessfully {
                             Label("Added to Ideas", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(SparkColors.success)
                         } else {
                             Label("Add to Ideas List", systemImage: "plus.circle")
                         }
