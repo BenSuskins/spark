@@ -79,7 +79,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func removeVote(_ vote: Vote, in groupIdentifier: String) async -> Result<Void, SparkError> {
-        await deleteCachedVote(vote.id)
+        await deleteCachedVoteByUser(vote.ideaIdentifier, userIdentifier: vote.userIdentifier)
 
         let remoteResult = await remote.removeVote(vote, in: groupIdentifier)
         if case .failure(.networkUnavailable) = remoteResult {
@@ -319,8 +319,11 @@ extension CachedDateRepository {
 
     @MainActor
     private func cacheVote(_ vote: Vote, groupIdentifier: String, syncStatus: SyncStatus) {
-        let voteId = vote.id
-        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.identifier == voteId })
+        let ideaId = vote.ideaIdentifier
+        let userId = vote.userIdentifier
+        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate {
+            $0.ideaIdentifier == ideaId && $0.userIdentifier == userId
+        })
         if let existing = try? context.fetch(descriptor).first {
             existing.update(from: vote)
             existing.syncStatus = syncStatus.rawValue
@@ -337,6 +340,18 @@ extension CachedDateRepository {
             context.delete(existing)
             try? context.save()
         }
+    }
+
+    @MainActor
+    private func deleteCachedVoteByUser(_ ideaIdentifier: String, userIdentifier: String) {
+        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate {
+            $0.ideaIdentifier == ideaIdentifier && $0.userIdentifier == userIdentifier
+        })
+        let existing = (try? context.fetch(descriptor)) ?? []
+        for vote in existing {
+            context.delete(vote)
+        }
+        try? context.save()
     }
 
     @MainActor

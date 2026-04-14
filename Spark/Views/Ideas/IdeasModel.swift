@@ -12,6 +12,7 @@ final class IdeasModel {
     private let repository: DateRepository
     private let currentUserIdentifier: String
     private(set) var groupIdentifier: String
+    private var isVoting = false
 
     init(repository: DateRepository, groupIdentifier: String, currentUserIdentifier: String) {
         self.repository = repository
@@ -80,11 +81,19 @@ final class IdeasModel {
     }
 
     func toggleVote(on idea: Idea, value: Int) async {
+        guard !isVoting else { return }
+        isVoting = true
+        defer { isVoting = false }
+
         let existingVotes = votesByIdea[idea.id] ?? []
         let existingVote = existingVotes.first { $0.userIdentifier == currentUserIdentifier }
 
         if let existing = existingVote, existing.value == value {
-            _ = await repository.removeVote(existing, in: groupIdentifier)
+            votesByIdea[idea.id] = existingVotes.filter { $0.id != existing.id }
+            let result = await repository.removeVote(existing, in: groupIdentifier)
+            if case .failure = result {
+                await loadIdeas()
+            }
         } else {
             let vote = Vote(
                 id: UUID().uuidString,
@@ -92,10 +101,12 @@ final class IdeasModel {
                 userIdentifier: currentUserIdentifier,
                 value: value
             )
-            _ = await repository.castVote(vote, on: idea)
+            votesByIdea[idea.id] = existingVotes.filter { $0.userIdentifier != currentUserIdentifier } + [vote]
+            let result = await repository.castVote(vote, on: idea)
+            if case .failure = result {
+                await loadIdeas()
+            }
         }
-
-        await loadIdeas()
     }
 
     func score(for ideaIdentifier: String) -> Int {
