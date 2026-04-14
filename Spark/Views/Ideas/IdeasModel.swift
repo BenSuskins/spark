@@ -11,12 +11,16 @@ final class IdeasModel {
 
     private let repository: DateRepository
     private let currentUserIdentifier: String
-    let groupIdentifier: String
+    private(set) var groupIdentifier: String
 
     init(repository: DateRepository, groupIdentifier: String, currentUserIdentifier: String) {
         self.repository = repository
         self.groupIdentifier = groupIdentifier
         self.currentUserIdentifier = currentUserIdentifier
+    }
+
+    func updateGroup(_ groupIdentifier: String) {
+        self.groupIdentifier = groupIdentifier
     }
 
     func loadIdeas() async {
@@ -34,11 +38,10 @@ final class IdeasModel {
             }
             ideasByCategory = grouped
 
-            var allVotes: [String: [Vote]] = [:]
-            for idea in ideas {
-                allVotes[idea.id] = await repository.votesForIdea(idea.id)
+            let votesResult = await repository.fetchAllVotes(for: groupIdentifier)
+            if case .success(let allVotes) = votesResult {
+                votesByIdea = allVotes
             }
-            votesByIdea = allVotes
 
         case .failure(let sparkError):
             error = sparkError
@@ -81,7 +84,7 @@ final class IdeasModel {
         let existingVote = existingVotes.first { $0.userIdentifier == currentUserIdentifier }
 
         if let existing = existingVote, existing.value == value {
-            _ = await repository.removeVote(existing)
+            _ = await repository.removeVote(existing, in: groupIdentifier)
         } else {
             let vote = Vote(
                 id: UUID().uuidString,

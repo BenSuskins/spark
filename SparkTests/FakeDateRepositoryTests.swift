@@ -82,7 +82,7 @@ import Testing
 
     let vote = Vote(id: "vote-1", ideaIdentifier: "idea-1", userIdentifier: "u1", value: 1)
     _ = await repository.castVote(vote, on: idea)
-    _ = await repository.removeVote(vote)
+    _ = await repository.removeVote(vote, in: "group-1")
 
     let votes = await repository.votesForIdea("idea-1")
     #expect(votes.isEmpty)

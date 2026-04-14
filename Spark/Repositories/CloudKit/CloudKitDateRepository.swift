@@ -83,23 +83,14 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
         }
     }
 
-    func removeVote(_ vote: Vote) async -> Result<Void, SparkError> {
-        // We need to find the zone — votes reference an idea, which references a group
-        // For simplicity, search across all zones
-        let zones = await manager.fetchAllZones()
-        if case .success(let allZones) = zones {
-            for zone in allZones {
-                let database = manager.databaseForZone(zone.zoneID)
-                let recordID = CKRecord.ID(recordName: vote.id, zoneID: zone.zoneID)
-                let result = await manager.delete(recordID, in: database)
-                if case .success = result { return .success(()) }
-            }
-        }
-        return .failure(.recordNotFound)
+    func removeVote(_ vote: Vote, in groupIdentifier: String) async -> Result<Void, SparkError> {
+        let zoneID = manager.zoneID(for: groupIdentifier)
+        let database = manager.databaseForZone(zoneID)
+        let recordID = CKRecord.ID(recordName: vote.id, zoneID: zoneID)
+        return await manager.delete(recordID, in: database)
     }
 
     func votesForIdea(_ ideaIdentifier: String) async -> [Vote] {
-        // Fan-out across zones
         let zones = await manager.fetchAllZones()
         guard case .success(let allZones) = zones else { return [] }
 
@@ -114,6 +105,18 @@ final class CloudKitDateRepository: DateRepository, @unchecked Sendable {
             }
         }
         return allVotes
+    }
+
+    func fetchAllVotes(for groupIdentifier: String) async -> Result<[String: [Vote]], SparkError> {
+        let zoneID = manager.zoneID(for: groupIdentifier)
+        let database = manager.databaseForZone(zoneID)
+        let predicate = NSPredicate(value: true)
+
+        let result = await manager.fetch(recordType: RecordType.vote, predicate: predicate, in: database)
+        return result.map { records in
+            let votes = records.compactMap(Vote.init)
+            return Dictionary(grouping: votes, by: \.ideaIdentifier)
+        }
     }
 
     // MARK: - Planned Dates

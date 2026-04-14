@@ -1,0 +1,119 @@
+import Foundation
+import SwiftData
+
+final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
+    private let remote: GroupRepository
+    private let modelContainer: ModelContainer
+
+    init(remote: GroupRepository, modelContainer: ModelContainer) {
+        self.remote = remote
+        self.modelContainer = modelContainer
+    }
+
+    @MainActor
+    private var context: ModelContext { modelContainer.mainContext }
+
+    func fetchGroups() async -> Result<[Group], SparkError> {
+        let cached = await fetchCachedGroups()
+
+        Task { await syncGroupsFromRemote() }
+
+        return .success(cached)
+    }
+
+    func createGroup(name: String) async -> Result<Group, SparkError> {
+        let remoteResult = await remote.createGroup(name: name)
+
+        if case .success(let group) = remoteResult {
+            await cacheGroup(group, syncStatus: .synced)
+        }
+
+        return remoteResult
+    }
+
+    func deleteGroup(_ group: Group) async -> Result<Void, SparkError> {
+        await deleteCachedGroup(group.id)
+
+        let remoteResult = await remote.deleteGroup(group)
+        if case .failure = remoteResult {
+            // Re-cache if remote delete fails
+            await cacheGroup(group, syncStatus: .synced)
+        }
+
+        return remoteResult
+    }
+
+    func shareGroup(_ group: Group) async -> Result<URL, SparkError> {
+        await remote.shareGroup(group)
+    }
+
+    func acceptShare(from url: URL) async -> Result<Group, SparkError> {
+        let result = await remote.acceptShare(from: url)
+
+        if case .success(let group) = result {
+            await cacheGroup(group, syncStatus: .synced)
+        }
+
+        return result
+    }
+
+    // MARK: - Cache Operations
+
+    @MainActor
+    private func fetchCachedGroups() -> [Group] {
+        let descriptor = FetchDescriptor<PersistedGroup>()
+        let persisted = (try? context.fetch(descriptor)) ?? []
+        return persisted.map { $0.toModel() }
+    }
+
+    @MainActor
+    private func cacheGroup(_ group: Group, syncStatus: SyncStatus) {
+        let groupId = group.id
+        let descriptor = FetchDescriptor<PersistedGroup>(predicate: #Predicate { $0.identifier == groupId })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.update(from: group)
+            existing.syncStatus = syncStatus.rawValue
+        } else {
+            context.insert(PersistedGroup(from: group, syncStatus: syncStatus))
+        }
+        try? context.save()
+    }
+
+    @MainActor
+    private func deleteCachedGroup(_ identifier: String) {
+        let descriptor = FetchDescriptor<PersistedGroup>(predicate: #Predicate { $0.identifier == identifier })
+        if let existing = try? context.fetch(descriptor).first {
+            context.delete(existing)
+            try? context.save()
+        }
+    }
+
+    @MainActor
+    private func syncGroupsFromRemote() async {
+        let result = await remote.fetchGroups()
+        guard case .success(let groups) = result else { return }
+
+        // Replace all cached groups with remote data
+        let descriptor = FetchDescriptor<PersistedGroup>()
+        let existing = (try? context.fetch(descriptor)) ?? []
+        let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.identifier, $0) })
+
+        var remoteIds = Set<String>()
+        for group in groups {
+            remoteIds.insert(group.id)
+            if let persisted = existingById[group.id] {
+                persisted.update(from: group)
+                persisted.syncStatus = SyncStatus.synced.rawValue
+            } else {
+                context.insert(PersistedGroup(from: group, syncStatus: .synced))
+            }
+        }
+
+        // Remove groups that no longer exist remotely (unless pending sync)
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+            context.delete(persisted)
+        }
+
+        try? context.save()
+    }
+}

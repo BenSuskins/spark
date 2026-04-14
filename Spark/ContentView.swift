@@ -1,11 +1,21 @@
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
     private let dateRepository: DateRepository
     private let groupRepository: GroupRepository
     private let cloudKitManager: CloudKitManager?
+    private let modelContainer: ModelContainer
 
     init() {
+        let container: ModelContainer
+        do {
+            container = try PersistenceContainer.create()
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+        self.modelContainer = container
+
         #if targetEnvironment(simulator)
         dateRepository = FakeDateRepository()
         groupRepository = FakeGroupRepository()
@@ -13,8 +23,10 @@ struct ContentView: View {
         #else
         let manager = CloudKitManager()
         cloudKitManager = manager
-        dateRepository = CloudKitDateRepository(manager: manager)
-        groupRepository = CloudKitGroupRepository(manager: manager)
+        let cloudKitDateRepo = CloudKitDateRepository(manager: manager)
+        let cloudKitGroupRepo = CloudKitGroupRepository(manager: manager)
+        dateRepository = CachedDateRepository(remote: cloudKitDateRepo, modelContainer: container)
+        groupRepository = CachedGroupRepository(remote: cloudKitGroupRepo, modelContainer: container)
         #endif
     }
     private let venueSearchService: VenueSearchService = MapKitVenueSearchService()
@@ -31,6 +43,8 @@ struct ContentView: View {
     @State private var discoverModel: DiscoverModel?
     @State private var calendarModel: CalendarModel?
     @State private var notificationModel: NotificationModel?
+    @State private var networkMonitor = NetworkMonitor()
+    @State private var syncManager: SyncManager?
 
     var body: some View {
         TabView {
@@ -41,7 +55,7 @@ struct ContentView: View {
                         repository: dateRepository,
                         venueSearchService: venueSearchService,
                         groupIdentifiers: groupModel.groupIdentifiers,
-                        groupPickerMenu: GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
+                        groupPickerMenu: groupPickerMenu
                     )
                 }
             }
@@ -53,13 +67,13 @@ struct ContentView: View {
             }
 
             Tab("Ideas", systemImage: "lightbulb") {
-                if let ideasModel, let groupModel {
+                if let ideasModel {
                     IdeasTab(
                         model: ideasModel,
                         homeModel: homeModel,
                         calendarModel: calendarModel,
                         notificationModel: notificationModel,
-                        groupPickerMenu: GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
+                        groupPickerMenu: groupPickerMenu
                     )
                 }
             }
@@ -103,59 +117,90 @@ struct ContentView: View {
 
             if notificationModel == nil {
                 let nm = NotificationModel(notificationService: notificationService)
-                // Only request authorization for returning users — onboarding handles new users.
                 if hasCompletedOnboarding {
                     await nm.requestAuthorization()
                 }
                 notificationModel = nm
             }
 
-            rebuildModels()
+            createModels()
+
+            #if !targetEnvironment(simulator)
+            if let cloudKitManager {
+                let sm = SyncManager(
+                    modelContainer: modelContainer,
+                    remoteDateRepository: CloudKitDateRepository(manager: cloudKitManager),
+                    remoteGroupRepository: CloudKitGroupRepository(manager: cloudKitManager)
+                )
+                syncManager = sm
+                networkMonitor.onConnectivityRestored = { await sm.syncPendingChanges() }
+                networkMonitor.start()
+            }
+            #endif
         }
         .onChange(of: groupModel?.selectedGroupIdentifier) { _, _ in
-            rebuildModels()
+            updateGroupSelection()
         }
         .onChange(of: groupModel?.groupIdentifiers) { _, _ in
-            rebuildModels()
+            updateGroupSelection()
         }
         .onChange(of: hasCompletedOnboarding) { _, newValue in
             if newValue {
-                // Reload groups after onboarding creates the first group.
                 Task {
                     await groupModel?.loadGroups()
-                    rebuildModels()
+                    createModels()
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cloudKitShareAccepted)) { _ in
-            // An invite was accepted via the system share UI — reload so the shared group appears.
             Task {
                 await groupModel?.loadGroups()
-                rebuildModels()
+                updateGroupSelection()
             }
         }
     }
 
-    private func rebuildModels() {
+    private var groupPickerMenu: GroupPickerMenu? {
+        guard let groupModel else { return nil }
+        return GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel)
+    }
+
+    private func createModels() {
         guard let groupModel else { return }
 
         let groupId = groupModel.selectedGroupIdentifier ?? groupModel.groupIdentifiers.first ?? "default"
 
-        homeModel = HomeModel(repository: dateRepository, currentUserIdentifier: currentUserIdentifier)
+        if homeModel == nil {
+            homeModel = HomeModel(repository: dateRepository, currentUserIdentifier: currentUserIdentifier)
+        }
         homeModel?.selectedGroupIdentifier = groupModel.selectedGroupIdentifier
 
-        ideasModel = IdeasModel(
-            repository: dateRepository,
-            groupIdentifier: groupId,
-            currentUserIdentifier: currentUserIdentifier
-        )
+        if ideasModel == nil {
+            ideasModel = IdeasModel(
+                repository: dateRepository,
+                groupIdentifier: groupId,
+                currentUserIdentifier: currentUserIdentifier
+            )
+        }
 
-        discoverModel = DiscoverModel(
-            venueSearchService: venueSearchService,
-            dateRepository: dateRepository,
-            groupIdentifier: groupId,
-            currentUserIdentifier: currentUserIdentifier
-        )
+        if discoverModel == nil {
+            discoverModel = DiscoverModel(
+                venueSearchService: venueSearchService,
+                dateRepository: dateRepository,
+                groupIdentifier: groupId,
+                currentUserIdentifier: currentUserIdentifier
+            )
+        }
+    }
+
+    private func updateGroupSelection() {
+        guard let groupModel else { return }
+
+        let groupId = groupModel.selectedGroupIdentifier ?? groupModel.groupIdentifiers.first ?? "default"
+
+        homeModel?.selectedGroupIdentifier = groupModel.selectedGroupIdentifier
+        ideasModel?.updateGroup(groupId)
+        discoverModel?.updateGroup(groupId)
     }
 }
 

@@ -38,13 +38,21 @@ final class FakeDateRepository: DateRepository, @unchecked Sendable {
         return .success(vote)
     }
 
-    func removeVote(_ vote: Vote) async -> Result<Void, SparkError> {
+    func removeVote(_ vote: Vote, in groupIdentifier: String) async -> Result<Void, SparkError> {
         votes.removeAll { $0.id == vote.id }
         return .success(())
     }
 
     func votesForIdea(_ ideaIdentifier: String) async -> [Vote] {
         votes.filter { $0.ideaIdentifier == ideaIdentifier }
+    }
+
+    func fetchAllVotes(for groupIdentifier: String) async -> Result<[String: [Vote]], SparkError> {
+        let groupIdeas = ideas.filter { $0.groupIdentifier == groupIdentifier }
+        let ideaIds = Set(groupIdeas.map(\.id))
+        let groupVotes = votes.filter { ideaIds.contains($0.ideaIdentifier) }
+        let grouped = Dictionary(grouping: groupVotes, by: \.ideaIdentifier)
+        return .success(grouped)
     }
 
     // MARK: - Planned Dates

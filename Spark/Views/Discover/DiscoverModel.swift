@@ -13,7 +13,7 @@ final class DiscoverModel {
 
     private let venueSearchService: VenueSearchService
     private let dateRepository: DateRepository
-    let groupIdentifier: String
+    private(set) var groupIdentifier: String
     let currentUserIdentifier: String
 
     init(venueSearchService: VenueSearchService, dateRepository: DateRepository, groupIdentifier: String, currentUserIdentifier: String) {
@@ -21,6 +21,10 @@ final class DiscoverModel {
         self.dateRepository = dateRepository
         self.groupIdentifier = groupIdentifier
         self.currentUserIdentifier = currentUserIdentifier
+    }
+
+    func updateGroup(_ groupIdentifier: String) {
+        self.groupIdentifier = groupIdentifier
     }
 
     func search(query: String) async {
