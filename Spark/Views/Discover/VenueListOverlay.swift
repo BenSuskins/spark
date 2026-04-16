@@ -17,7 +17,7 @@ struct VenueListOverlay: View {
             .padding(.horizontal)
         }
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .glassEffect(.regular, in: .rect)
     }
 }
 
