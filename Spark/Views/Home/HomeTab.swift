@@ -6,6 +6,7 @@ struct HomeTab: View {
     let venueSearchService: VenueSearchService
     let groupIdentifiers: [String]
     var groupPickerMenu: GroupPickerMenu?
+    @State private var dateToDelete: PlannedDate?
 
     var body: some View {
         NavigationStack {
@@ -22,9 +23,9 @@ struct HomeTab: View {
                             NavigationLink(value: plannedDate) {
                                 DateCard(plannedDate: plannedDate)
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .contextMenu {
                                 Button(role: .destructive) {
-                                    Task { await model.deletePlannedDate(plannedDate) }
+                                    dateToDelete = plannedDate
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -45,9 +46,9 @@ struct HomeTab: View {
                             NavigationLink(value: plannedDate) {
                                 DateCard(plannedDate: plannedDate)
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            .contextMenu {
                                 Button(role: .destructive) {
-                                    Task { await model.deletePlannedDate(plannedDate) }
+                                    dateToDelete = plannedDate
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -70,6 +71,18 @@ struct HomeTab: View {
                     venueSearchService: venueSearchService,
                     repository: repository
                 )
+            }
+            .confirmationDialog("Delete Date", isPresented: Binding(
+                get: { dateToDelete != nil },
+                set: { if !$0 { dateToDelete = nil } }
+            ), titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    if let plannedDate = dateToDelete {
+                        Task { await model.deletePlannedDate(plannedDate) }
+                    }
+                }
+            } message: {
+                Text("This date and its itinerary will be permanently deleted.")
             }
             .task {
                 await model.loadDates(for: groupIdentifiers)

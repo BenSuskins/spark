@@ -8,6 +8,7 @@ struct IdeasTab: View {
     var groupPickerMenu: GroupPickerMenu?
     @State private var showingAddIdea = false
     @State private var ideaToPlan: Idea?
+    @State private var ideaToDelete: Idea?
 
     var body: some View {
         NavigationStack {
@@ -25,19 +26,16 @@ struct IdeasTab: View {
                                     onUpvote: { Task { await model.toggleVote(on: idea, value: 1) } },
                                     onDownvote: { Task { await model.toggleVote(on: idea, value: -1) } }
                                 )
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                .contextMenu {
                                     if homeModel != nil {
                                         Button {
                                             ideaToPlan = idea
                                         } label: {
-                                            Label("Plan", systemImage: "calendar.badge.plus")
+                                            Label("Plan Date", systemImage: "calendar.badge.plus")
                                         }
-                                        .tint(.blue)
                                     }
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        Task { await model.deleteIdea(idea) }
+                                        ideaToDelete = idea
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
@@ -79,6 +77,18 @@ struct IdeasTab: View {
                 if let homeModel {
                     PlanIdeaSheet(idea: idea, homeModel: homeModel, calendarModel: calendarModel, notificationModel: notificationModel)
                 }
+            }
+            .confirmationDialog("Delete Idea", isPresented: Binding(
+                get: { ideaToDelete != nil },
+                set: { if !$0 { ideaToDelete = nil } }
+            ), titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    if let idea = ideaToDelete {
+                        Task { await model.deleteIdea(idea) }
+                    }
+                }
+            } message: {
+                Text("This idea and all its votes will be permanently deleted.")
             }
             .task {
                 await model.loadIdeas()
