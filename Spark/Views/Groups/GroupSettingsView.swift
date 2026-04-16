@@ -6,8 +6,7 @@ struct GroupSettingsView: View {
     var notificationModel: NotificationModel?
     var locationModel: LocationModel?
     @State private var showingCreateGroup = false
-    @State private var shareURL: URL?
-    @State private var showingShareSheet = false
+    @State private var shareURL: ShareableURL?
     @State private var shareError: SparkError?
     @Environment(\.dismiss) private var dismiss
 
@@ -78,8 +77,7 @@ struct GroupSettingsView: View {
                                         let result = await model.shareGroup(group)
                                         switch result {
                                         case .success(let url):
-                                            shareURL = url
-                                            showingShareSheet = true
+                                            shareURL = ShareableURL(url: url)
                                         case .failure(let error):
                                             shareError = error
                                         }
@@ -115,10 +113,8 @@ struct GroupSettingsView: View {
             .sheet(isPresented: $showingCreateGroup) {
                 CreateGroupSheet(model: model)
             }
-            .sheet(isPresented: $showingShareSheet) {
-                if let shareURL {
-                    ShareSheet(url: shareURL)
-                }
+            .sheet(item: $shareURL) { item in
+                ShareSheet(url: item.url)
             }
             .alert("Sharing Failed", isPresented: Binding(
                 get: { shareError != nil },
@@ -157,6 +153,11 @@ struct GroupRow: View {
             .buttonStyle(.borderless)
         }
     }
+}
+
+struct ShareableURL: Identifiable {
+    let id = UUID()
+    let url: URL
 }
 
 struct ShareSheet: UIViewControllerRepresentable {
