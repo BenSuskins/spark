@@ -79,6 +79,8 @@ final class FakeDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func deletePlannedDate(_ plannedDate: PlannedDate) async -> Result<Void, SparkError> {
+        itinerarySteps.removeAll { $0.plannedDateIdentifier == plannedDate.id }
+        journalEntries.removeAll { $0.plannedDateIdentifier == plannedDate.id }
         plannedDates.removeAll { $0.id == plannedDate.id }
         return .success(())
     }

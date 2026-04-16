@@ -4,6 +4,7 @@ import SwiftData
 final class CachedDateRepository: DateRepository, @unchecked Sendable {
     private let remote: DateRepository
     private let modelContainer: ModelContainer
+    @MainActor private var activeSyncTask: Task<Void, Never>?
 
     init(remote: DateRepository, modelContainer: ModelContainer) {
         self.remote = remote
@@ -13,12 +14,21 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     @MainActor
     private var context: ModelContext { modelContainer.mainContext }
 
+    @MainActor
+    private func enqueueSync(_ work: @escaping @MainActor () async -> Void) {
+        let previous = activeSyncTask
+        activeSyncTask = Task { @MainActor in
+            await previous?.value
+            await work()
+        }
+    }
+
     // MARK: - Ideas
 
     func fetchIdeas(for groupIdentifier: String) async -> Result<[Idea], SparkError> {
         let cached = await fetchCachedIdeas(for: groupIdentifier)
 
-        Task { await syncIdeasFromRemote(for: groupIdentifier) }
+        await enqueueSync { [self] in await syncIdeasFromRemote(for: groupIdentifier) }
 
         return .success(cached)
     }
@@ -52,10 +62,12 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func deleteIdea(_ idea: Idea) async -> Result<Void, SparkError> {
-        await deleteCachedIdea(idea.id)
-
         let remoteResult = await remote.deleteIdea(idea)
-        if case .failure(.networkUnavailable) = remoteResult {
+
+        if case .success = remoteResult {
+            await deleteCachedIdea(idea.id)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            await markCachedIdeaForDeletion(idea.id)
             return .success(())
         }
 
@@ -79,10 +91,12 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func removeVote(_ vote: Vote, in groupIdentifier: String) async -> Result<Void, SparkError> {
-        await deleteCachedVoteByUser(vote.ideaIdentifier, userIdentifier: vote.userIdentifier)
-
         let remoteResult = await remote.removeVote(vote, in: groupIdentifier)
-        if case .failure(.networkUnavailable) = remoteResult {
+
+        if case .success = remoteResult {
+            await deleteCachedVoteByUser(vote.ideaIdentifier, userIdentifier: vote.userIdentifier)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            await markCachedVoteForDeletion(vote.ideaIdentifier, userIdentifier: vote.userIdentifier)
             return .success(())
         }
 
@@ -96,7 +110,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     func fetchAllVotes(for groupIdentifier: String) async -> Result<[String: [Vote]], SparkError> {
         let cached = await fetchCachedAllVotes(for: groupIdentifier)
 
-        Task { await syncVotesFromRemote(for: groupIdentifier) }
+        await enqueueSync { [self] in await syncVotesFromRemote(for: groupIdentifier) }
 
         return .success(cached)
     }
@@ -106,7 +120,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     func fetchUpcomingDates(for groupIdentifier: String) async -> Result<[PlannedDate], SparkError> {
         let cached = await fetchCachedUpcomingDates(for: groupIdentifier)
 
-        Task { await syncPlannedDatesFromRemote(for: groupIdentifier) }
+        await enqueueSync { [self] in await syncPlannedDatesFromRemote(for: groupIdentifier) }
 
         return .success(cached)
     }
@@ -114,7 +128,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     func fetchPastDates(for groupIdentifier: String) async -> Result<[PlannedDate], SparkError> {
         let cached = await fetchCachedPastDates(for: groupIdentifier)
 
-        Task { await syncPlannedDatesFromRemote(for: groupIdentifier) }
+        await enqueueSync { [self] in await syncPlannedDatesFromRemote(for: groupIdentifier) }
 
         return .success(cached)
     }
@@ -148,10 +162,12 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func deletePlannedDate(_ plannedDate: PlannedDate) async -> Result<Void, SparkError> {
-        await deleteCachedPlannedDate(plannedDate.id)
-
         let remoteResult = await remote.deletePlannedDate(plannedDate)
-        if case .failure(.networkUnavailable) = remoteResult {
+
+        if case .success = remoteResult {
+            await deleteCachedPlannedDate(plannedDate.id)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            await markCachedPlannedDateForDeletion(plannedDate.id)
             return .success(())
         }
 
@@ -163,7 +179,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     func fetchItinerarySteps(for plannedDate: PlannedDate) async -> Result<[ItineraryStep], SparkError> {
         let cached = await fetchCachedItinerarySteps(for: plannedDate.id)
 
-        Task { await syncItineraryStepsFromRemote(for: plannedDate) }
+        await enqueueSync { [self] in await syncItineraryStepsFromRemote(for: plannedDate) }
 
         return .success(cached)
     }
@@ -183,20 +199,26 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func updateItineraryStep(_ step: ItineraryStep) async -> Result<ItineraryStep, SparkError> {
+        await updateCachedItineraryStep(step, syncStatus: .pending)
+
         let remoteResult = await remote.updateItineraryStep(step)
         if case .success(let saved) = remoteResult {
-            await updateCachedItineraryStep(saved)
+            await updateCachedItineraryStep(saved, syncStatus: .synced)
             return .success(saved)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            return .success(step)
         }
 
         return remoteResult
     }
 
     func deleteItineraryStep(_ step: ItineraryStep) async -> Result<Void, SparkError> {
-        await deleteCachedItineraryStep(step.id)
-
         let remoteResult = await remote.deleteItineraryStep(step)
-        if case .failure(.networkUnavailable) = remoteResult {
+
+        if case .success = remoteResult {
+            await deleteCachedItineraryStep(step.id)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            await markCachedItineraryStepForDeletion(step.id)
             return .success(())
         }
 
@@ -208,7 +230,7 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     func fetchJournalEntry(for plannedDate: PlannedDate) async -> Result<JournalEntry?, SparkError> {
         let cached = await fetchCachedJournalEntry(for: plannedDate.id)
 
-        Task { await syncJournalEntryFromRemote(for: plannedDate) }
+        await enqueueSync { [self] in await syncJournalEntryFromRemote(for: plannedDate) }
 
         return .success(cached)
     }
@@ -228,10 +250,14 @@ final class CachedDateRepository: DateRepository, @unchecked Sendable {
     }
 
     func updateJournalEntry(_ entry: JournalEntry) async -> Result<JournalEntry, SparkError> {
+        await updateCachedJournalEntry(entry, syncStatus: .pending)
+
         let remoteResult = await remote.updateJournalEntry(entry)
         if case .success(let saved) = remoteResult {
-            await updateCachedJournalEntry(saved)
+            await updateCachedJournalEntry(saved, syncStatus: .synced)
             return .success(saved)
+        } else if case .failure(.networkUnavailable) = remoteResult {
+            return .success(entry)
         }
 
         return remoteResult
@@ -246,7 +272,10 @@ extension CachedDateRepository {
 
     @MainActor
     private func fetchCachedIdeas(for groupIdentifier: String) -> [Idea] {
-        let descriptor = FetchDescriptor<PersistedIdea>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        let deleted = SyncStatus.pendingDeletion.rawValue
+        let descriptor = FetchDescriptor<PersistedIdea>(predicate: #Predicate {
+            $0.groupIdentifier == groupIdentifier && $0.syncStatus != deleted
+        })
         let persisted = (try? context.fetch(descriptor)) ?? []
         return persisted.compactMap { $0.toModel() }
     }
@@ -266,11 +295,30 @@ extension CachedDateRepository {
 
     @MainActor
     private func deleteCachedIdea(_ identifier: String) {
+        let voteDescriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.ideaIdentifier == identifier })
+        for vote in (try? context.fetch(voteDescriptor)) ?? [] {
+            context.delete(vote)
+        }
+
         let descriptor = FetchDescriptor<PersistedIdea>(predicate: #Predicate { $0.identifier == identifier })
         if let existing = try? context.fetch(descriptor).first {
             context.delete(existing)
-            try? context.save()
         }
+        try? context.save()
+    }
+
+    @MainActor
+    private func markCachedIdeaForDeletion(_ identifier: String) {
+        let voteDescriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.ideaIdentifier == identifier })
+        for vote in (try? context.fetch(voteDescriptor)) ?? [] {
+            vote.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+
+        let descriptor = FetchDescriptor<PersistedIdea>(predicate: #Predicate { $0.identifier == identifier })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+        try? context.save()
     }
 
     @MainActor
@@ -293,7 +341,7 @@ extension CachedDateRepository {
             }
         }
 
-        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue && persisted.syncStatus != SyncStatus.pendingDeletion.rawValue {
             context.delete(persisted)
         }
 
@@ -304,14 +352,20 @@ extension CachedDateRepository {
 
     @MainActor
     private func fetchCachedVotesForIdea(_ ideaIdentifier: String) -> [Vote] {
-        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.ideaIdentifier == ideaIdentifier })
+        let deleted = SyncStatus.pendingDeletion.rawValue
+        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate {
+            $0.ideaIdentifier == ideaIdentifier && $0.syncStatus != deleted
+        })
         let persisted = (try? context.fetch(descriptor)) ?? []
         return persisted.map { $0.toModel() }
     }
 
     @MainActor
     private func fetchCachedAllVotes(for groupIdentifier: String) -> [String: [Vote]] {
-        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        let deleted = SyncStatus.pendingDeletion.rawValue
+        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate {
+            $0.groupIdentifier == groupIdentifier && $0.syncStatus != deleted
+        })
         let persisted = (try? context.fetch(descriptor)) ?? []
         let votes = persisted.map { $0.toModel() }
         return Dictionary(grouping: votes, by: \.ideaIdentifier)
@@ -355,6 +409,17 @@ extension CachedDateRepository {
     }
 
     @MainActor
+    private func markCachedVoteForDeletion(_ ideaIdentifier: String, userIdentifier: String) {
+        let descriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate {
+            $0.ideaIdentifier == ideaIdentifier && $0.userIdentifier == userIdentifier
+        })
+        for vote in (try? context.fetch(descriptor)) ?? [] {
+            vote.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+        try? context.save()
+    }
+
+    @MainActor
     private func syncVotesFromRemote(for groupIdentifier: String) async {
         let result = await remote.fetchAllVotes(for: groupIdentifier)
         guard case .success(let votesByIdea) = result else { return }
@@ -376,7 +441,7 @@ extension CachedDateRepository {
             }
         }
 
-        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue && persisted.syncStatus != SyncStatus.pendingDeletion.rawValue {
             context.delete(persisted)
         }
 
@@ -389,8 +454,9 @@ extension CachedDateRepository {
     private func fetchCachedUpcomingDates(for groupIdentifier: String) -> [PlannedDate] {
         let now = Date.now
         let planned = DateStatus.planned.rawValue
+        let deleted = SyncStatus.pendingDeletion.rawValue
         let descriptor = FetchDescriptor<PersistedPlannedDate>(predicate: #Predicate {
-            $0.groupIdentifier == groupIdentifier && $0.status == planned && $0.date >= now
+            $0.groupIdentifier == groupIdentifier && $0.status == planned && $0.date >= now && $0.syncStatus != deleted
         })
         let persisted = (try? context.fetch(descriptor)) ?? []
         return persisted.compactMap { $0.toModel() }.sorted { $0.date < $1.date }
@@ -400,8 +466,9 @@ extension CachedDateRepository {
     private func fetchCachedPastDates(for groupIdentifier: String) -> [PlannedDate] {
         let now = Date.now
         let completed = DateStatus.completed.rawValue
+        let deleted = SyncStatus.pendingDeletion.rawValue
         let descriptor = FetchDescriptor<PersistedPlannedDate>(predicate: #Predicate {
-            $0.groupIdentifier == groupIdentifier && ($0.status == completed || $0.date < now)
+            $0.groupIdentifier == groupIdentifier && ($0.status == completed || $0.date < now) && $0.syncStatus != deleted
         })
         let persisted = (try? context.fetch(descriptor)) ?? []
         return persisted.compactMap { $0.toModel() }.sorted { $0.date > $1.date }
@@ -422,11 +489,40 @@ extension CachedDateRepository {
 
     @MainActor
     private func deleteCachedPlannedDate(_ identifier: String) {
+        let stepsDescriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.plannedDateIdentifier == identifier })
+        for step in (try? context.fetch(stepsDescriptor)) ?? [] {
+            context.delete(step)
+        }
+
+        let journalDescriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate { $0.plannedDateIdentifier == identifier })
+        for entry in (try? context.fetch(journalDescriptor)) ?? [] {
+            context.delete(entry)
+        }
+
         let descriptor = FetchDescriptor<PersistedPlannedDate>(predicate: #Predicate { $0.identifier == identifier })
         if let existing = try? context.fetch(descriptor).first {
             context.delete(existing)
-            try? context.save()
         }
+        try? context.save()
+    }
+
+    @MainActor
+    private func markCachedPlannedDateForDeletion(_ identifier: String) {
+        let stepsDescriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.plannedDateIdentifier == identifier })
+        for step in (try? context.fetch(stepsDescriptor)) ?? [] {
+            step.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+
+        let journalDescriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate { $0.plannedDateIdentifier == identifier })
+        for entry in (try? context.fetch(journalDescriptor)) ?? [] {
+            entry.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+
+        let descriptor = FetchDescriptor<PersistedPlannedDate>(predicate: #Predicate { $0.identifier == identifier })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.syncStatus = SyncStatus.pendingDeletion.rawValue
+        }
+        try? context.save()
     }
 
     @MainActor
@@ -455,7 +551,7 @@ extension CachedDateRepository {
             }
         }
 
-        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue && persisted.syncStatus != SyncStatus.pendingDeletion.rawValue {
             context.delete(persisted)
         }
 
@@ -466,7 +562,10 @@ extension CachedDateRepository {
 
     @MainActor
     private func fetchCachedItinerarySteps(for plannedDateIdentifier: String) -> [ItineraryStep] {
-        let descriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.plannedDateIdentifier == plannedDateIdentifier })
+        let deleted = SyncStatus.pendingDeletion.rawValue
+        let descriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate {
+            $0.plannedDateIdentifier == plannedDateIdentifier && $0.syncStatus != deleted
+        })
         let persisted = (try? context.fetch(descriptor)) ?? []
         return persisted.map { $0.toModel() }.sorted { $0.order < $1.order }
     }
@@ -485,12 +584,12 @@ extension CachedDateRepository {
     }
 
     @MainActor
-    private func updateCachedItineraryStep(_ step: ItineraryStep) {
+    private func updateCachedItineraryStep(_ step: ItineraryStep, syncStatus: SyncStatus = .synced) {
         let stepId = step.id
         let descriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.identifier == stepId })
         if let existing = try? context.fetch(descriptor).first {
             existing.update(from: step)
-            existing.syncStatus = SyncStatus.synced.rawValue
+            existing.syncStatus = syncStatus.rawValue
             try? context.save()
         }
     }
@@ -500,6 +599,15 @@ extension CachedDateRepository {
         let descriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.identifier == identifier })
         if let existing = try? context.fetch(descriptor).first {
             context.delete(existing)
+            try? context.save()
+        }
+    }
+
+    @MainActor
+    private func markCachedItineraryStepForDeletion(_ identifier: String) {
+        let descriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.identifier == identifier })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.syncStatus = SyncStatus.pendingDeletion.rawValue
             try? context.save()
         }
     }
@@ -525,7 +633,7 @@ extension CachedDateRepository {
             }
         }
 
-        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue && persisted.syncStatus != SyncStatus.pendingDeletion.rawValue {
             context.delete(persisted)
         }
 
@@ -536,7 +644,10 @@ extension CachedDateRepository {
 
     @MainActor
     private func fetchCachedJournalEntry(for plannedDateIdentifier: String) -> JournalEntry? {
-        let descriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate { $0.plannedDateIdentifier == plannedDateIdentifier })
+        let deleted = SyncStatus.pendingDeletion.rawValue
+        let descriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate {
+            $0.plannedDateIdentifier == plannedDateIdentifier && $0.syncStatus != deleted
+        })
         return (try? context.fetch(descriptor).first)?.toModel()
     }
 
@@ -554,12 +665,12 @@ extension CachedDateRepository {
     }
 
     @MainActor
-    private func updateCachedJournalEntry(_ entry: JournalEntry) {
+    private func updateCachedJournalEntry(_ entry: JournalEntry, syncStatus: SyncStatus = .synced) {
         let entryId = entry.id
         let descriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate { $0.identifier == entryId })
         if let existing = try? context.fetch(descriptor).first {
             existing.update(from: entry)
-            existing.syncStatus = SyncStatus.synced.rawValue
+            existing.syncStatus = syncStatus.rawValue
             try? context.save()
         }
     }

@@ -12,11 +12,21 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
 
     @MainActor
     private var context: ModelContext { modelContainer.mainContext }
+    @MainActor private var activeSyncTask: Task<Void, Never>?
+
+    @MainActor
+    private func enqueueSync(_ work: @escaping @MainActor () async -> Void) {
+        let previous = activeSyncTask
+        activeSyncTask = Task { @MainActor in
+            await previous?.value
+            await work()
+        }
+    }
 
     func fetchGroups() async -> Result<[Group], SparkError> {
         let cached = await fetchCachedGroups()
 
-        Task { await syncGroupsFromRemote() }
+        await enqueueSync { [self] in await syncGroupsFromRemote() }
 
         return .success(cached)
     }
@@ -81,11 +91,31 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
 
     @MainActor
     private func deleteCachedGroup(_ identifier: String) {
+        deleteCachedEntitiesForGroup(identifier)
+
         let descriptor = FetchDescriptor<PersistedGroup>(predicate: #Predicate { $0.identifier == identifier })
         if let existing = try? context.fetch(descriptor).first {
             context.delete(existing)
-            try? context.save()
         }
+        try? context.save()
+    }
+
+    @MainActor
+    private func deleteCachedEntitiesForGroup(_ groupIdentifier: String) {
+        let votesDescriptor = FetchDescriptor<PersistedVote>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        for vote in (try? context.fetch(votesDescriptor)) ?? [] { context.delete(vote) }
+
+        let ideasDescriptor = FetchDescriptor<PersistedIdea>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        for idea in (try? context.fetch(ideasDescriptor)) ?? [] { context.delete(idea) }
+
+        let stepsDescriptor = FetchDescriptor<PersistedItineraryStep>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        for step in (try? context.fetch(stepsDescriptor)) ?? [] { context.delete(step) }
+
+        let journalDescriptor = FetchDescriptor<PersistedJournalEntry>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        for entry in (try? context.fetch(journalDescriptor)) ?? [] { context.delete(entry) }
+
+        let datesDescriptor = FetchDescriptor<PersistedPlannedDate>(predicate: #Predicate { $0.groupIdentifier == groupIdentifier })
+        for date in (try? context.fetch(datesDescriptor)) ?? [] { context.delete(date) }
     }
 
     @MainActor
@@ -110,7 +140,7 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
         }
 
         // Remove groups that no longer exist remotely (unless pending sync)
-        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue {
+        for persisted in existing where !remoteIds.contains(persisted.identifier) && persisted.syncStatus != SyncStatus.pending.rawValue && persisted.syncStatus != SyncStatus.pendingDeletion.rawValue {
             context.delete(persisted)
         }
 
