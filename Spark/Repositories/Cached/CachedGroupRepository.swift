@@ -40,7 +40,7 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
 
         return remoteResult
     }
-
+        
     func deleteGroup(_ group: Group) async -> Result<Void, SparkError> {
         await deleteCachedGroup(group.id)
 
