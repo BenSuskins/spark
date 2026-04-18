@@ -1,86 +1,102 @@
 import SwiftUI
 import MapKit
 
-/// Half-map / half-list interface for venue discovery. The list is a draggable
-/// sheet overlaying the map with three detents (small / medium / large). Tapping
-/// a venue opens the `VenueDetailSheet`.
+/// Half-map / half-list interface for venue discovery. The list is a bottom
+/// overlay panel (not a system sheet) so the tab bar stays visible. Drag the
+/// grabber to expand/collapse. Tapping a venue opens the `VenueDetailSheet`.
 struct DiscoverTab: View {
     var model: DiscoverModel
 
     @State private var searchText = ""
     @State private var selectedVenue: Venue?
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
-    @State private var listDetent: PresentationDetent = .fraction(0.32)
+    @State private var isExpanded = false
 
     var body: some View {
-        Map(position: $cameraPosition, selection: $selectedVenue) {
-            ForEach(model.venues) { venue in
-                Marker(venue.name, coordinate: venue.coordinate)
-                    .tag(venue)
+        GeometryReader { proxy in
+            let collapsedHeight = max(proxy.size.height * 0.38, 260)
+            let expandedHeight = proxy.size.height * 0.82
+            let panelHeight = isExpanded ? expandedHeight : collapsedHeight
+
+            ZStack(alignment: .bottom) {
+                Map(position: $cameraPosition, selection: $selectedVenue) {
+                    ForEach(model.venues) { venue in
+                        Marker(venue.name, coordinate: venue.coordinate)
+                            .tag(venue)
+                    }
+                }
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    model.userCoordinate = context.camera.centerCoordinate
+                }
+                .ignoresSafeArea()
+
+                DiscoverBottomPanel(
+                    model: model,
+                    searchText: $searchText,
+                    selectedVenue: $selectedVenue,
+                    isExpanded: $isExpanded
+                )
+                .frame(height: panelHeight)
+                .animation(SparkSprings.sheet, value: isExpanded)
             }
         }
-        .onMapCameraChange(frequency: .onEnd) { context in
-            model.userCoordinate = context.camera.centerCoordinate
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .sheet(isPresented: .constant(true)) {
-            DiscoverListSheet(
-                model: model,
-                searchText: $searchText,
-                selectedVenue: $selectedVenue
-            )
-            .presentationDetents(
-                [.fraction(0.18), .fraction(0.55), .large],
-                selection: $listDetent
-            )
-            .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.55)))
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(28)
-            .interactiveDismissDisabled(true)
-            .sheet(item: $selectedVenue) { venue in
-                VenueDetailSheet(venue: venue, model: model)
-            }
+        .sheet(item: $selectedVenue) { venue in
+            VenueDetailSheet(venue: venue, model: model)
         }
     }
 }
 
-// MARK: - Draggable list sheet
+// MARK: - Bottom panel
 
-private struct DiscoverListSheet: View {
+private struct DiscoverBottomPanel: View {
     var model: DiscoverModel
     @Binding var searchText: String
     @Binding var selectedVenue: Venue?
+    @Binding var isExpanded: Bool
 
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        VStack(spacing: 14) {
-            searchField
+        VStack(spacing: 0) {
+            grabber
+                .padding(.top, 8)
+                .padding(.bottom, 6)
 
-            if model.isSearching {
-                ProgressView()
-                    .padding(.top, 12)
-                Spacer()
-            } else if model.venues.isEmpty {
-                emptyState
-                    .padding(.top, 8)
-                Spacer(minLength: 0)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(model.venues) { venue in
-                            VenuePhotoCard(venue: venue) {
-                                selectedVenue = venue
-                            }
+            searchField
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+
+            content
+        }
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial)
+        .clipShape(UnevenRoundedRectangle(
+            topLeadingRadius: 28,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: 28,
+            style: .continuous
+        ))
+    }
+
+    private var grabber: some View {
+        Capsule()
+            .fill(SparkColors.textTertiary.opacity(0.5))
+            .frame(width: 40, height: 5)
+            .contentShape(Rectangle().inset(by: -16))
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onEnded { value in
+                        if value.translation.height < -30 {
+                            withAnimation(SparkSprings.sheet) { isExpanded = true }
+                        } else if value.translation.height > 30 {
+                            withAnimation(SparkSprings.sheet) { isExpanded = false }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 20)
-                }
+            )
+            .onTapGesture {
+                withAnimation(SparkSprings.sheet) { isExpanded.toggle() }
             }
-        }
-        .padding(.top, 12)
-        .background(SparkColors.background)
     }
 
     private var searchField: some View {
@@ -98,6 +114,11 @@ private struct DiscoverListSheet: View {
                         Task { await model.search(query: "") }
                     }
                 }
+                .onChange(of: searchFocused) { _, focused in
+                    if focused {
+                        withAnimation(SparkSprings.sheet) { isExpanded = true }
+                    }
+                }
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
@@ -113,7 +134,31 @@ private struct DiscoverListSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(SparkColors.surface, in: Capsule())
-        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.isSearching {
+            ProgressView()
+                .padding(.top, 12)
+            Spacer(minLength: 0)
+        } else if model.venues.isEmpty {
+            emptyState
+                .padding(.top, 8)
+            Spacer(minLength: 0)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(model.venues) { venue in
+                        VenuePhotoCard(venue: venue) {
+                            selectedVenue = venue
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+            }
+        }
     }
 
     private var emptyState: some View {

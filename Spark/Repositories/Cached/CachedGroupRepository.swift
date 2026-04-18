@@ -41,6 +41,16 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
         return remoteResult
     }
         
+    func updateGroup(_ group: Group) async -> Result<Group, SparkError> {
+        let remoteResult = await remote.updateGroup(group)
+
+        if case .success(let updated) = remoteResult {
+            await cacheGroup(updated, syncStatus: .synced)
+        }
+
+        return remoteResult
+    }
+
     func deleteGroup(_ group: Group) async -> Result<Void, SparkError> {
         await deleteCachedGroup(group.id)
 

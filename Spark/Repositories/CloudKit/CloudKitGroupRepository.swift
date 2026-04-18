@@ -63,6 +63,26 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
         }
     }
 
+    func updateGroup(_ group: Group) async -> Result<Group, SparkError> {
+        let zoneID = manager.zoneID(for: group.id)
+        let recordID = CKRecord.ID(recordName: group.id, zoneID: zoneID)
+
+        do {
+            let record = try await manager.privateDatabase.record(for: recordID)
+            record["name"] = group.name as CKRecordValue
+            record["emoji"] = group.emoji as CKRecordValue
+
+            let result = try await manager.privateDatabase.modifyRecords(saving: [record], deleting: [])
+            let saved = result.saveResults.values.compactMap { try? $0.get() }.first
+            guard let savedRecord = saved, let updated = Group(record: savedRecord) else {
+                return .failure(.unknown("Failed to parse updated group"))
+            }
+            return .success(updated)
+        } catch {
+            return .failure(.cloudKitError(error.localizedDescription))
+        }
+    }
+
     func deleteGroup(_ group: Group) async -> Result<Void, SparkError> {
         let zoneID = manager.zoneID(for: group.id)
         // Deleting the zone removes all records within it

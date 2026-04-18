@@ -20,6 +20,14 @@ final class FakeGroupRepository: GroupRepository, @unchecked Sendable {
         return .success(group)
     }
 
+    func updateGroup(_ group: Group) async -> Result<Group, SparkError> {
+        guard let index = groups.firstIndex(where: { $0.id == group.id }) else {
+            return .failure(.recordNotFound)
+        }
+        groups[index] = group
+        return .success(group)
+    }
+
     func deleteGroup(_ group: Group) async -> Result<Void, SparkError> {
         groups.removeAll { $0.id == group.id }
         shareURLs.removeValue(forKey: group.id)

@@ -55,6 +55,22 @@ final class GroupModel {
         }
     }
 
+    func updateGroup(_ group: Group) async {
+        error = nil
+        let result = await repository.updateGroup(group)
+
+        switch result {
+        case .success(let updated):
+            if selectedGroup?.id == updated.id {
+                selectedGroup = updated
+                persistSelection()
+            }
+            await loadGroups()
+        case .failure(let groupError):
+            error = groupError
+        }
+    }
+
     func deleteGroup(_ group: Group) async {
         let result = await repository.deleteGroup(group)
 

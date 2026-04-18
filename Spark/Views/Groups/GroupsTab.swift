@@ -15,6 +15,7 @@ struct GroupsTab: View {
     @State private var shareURL: ShareableURL?
     @State private var shareError: SparkError?
     @State private var groupToDelete: Group?
+    @State private var groupToEdit: Group?
 
     var body: some View {
         NavigationStack {
@@ -23,7 +24,8 @@ struct GroupsTab: View {
                     if let current = model.selectedGroup {
                         GroupHeroCard(
                             group: current,
-                            onShare: { share(current) }
+                            onShare: { share(current) },
+                            onEdit: { groupToEdit = current }
                         )
                     } else {
                         EmptyGroupHero()
@@ -49,6 +51,9 @@ struct GroupsTab: View {
             }
             .sheet(isPresented: $showingCreateGroup) {
                 CreateGroupSheet(model: model)
+            }
+            .sheet(item: $groupToEdit) { group in
+                EditGroupSheet(model: model, group: group)
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsSheet(
@@ -116,17 +121,12 @@ struct GroupsTab: View {
     }
 
     private var actionsSection: some View {
-        VStack(spacing: 12) {
-            Button {
-                showingCreateGroup = true
-            } label: {
-                Label("Create group", systemImage: "plus")
-            }
-            .buttonStyle(SparkPrimaryButtonStyle())
-
-            Button("I've been invited to a group") { }
-                .buttonStyle(SparkGhostButtonStyle())
+        Button {
+            showingCreateGroup = true
+        } label: {
+            Label("Create group", systemImage: "plus")
         }
+        .buttonStyle(SparkPrimaryButtonStyle())
     }
 
     // MARK: - Actions
@@ -149,6 +149,7 @@ struct GroupsTab: View {
 private struct GroupHeroCard: View {
     let group: Group
     let onShare: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
         VStack(spacing: 20) {
@@ -163,12 +164,27 @@ private struct GroupHeroCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.8))
 
-            Button {
-                onShare()
-            } label: {
-                Label("Share & invite", systemImage: "square.and.arrow.up")
+            HStack(spacing: 10) {
+                Button {
+                    onShare()
+                } label: {
+                    Label("Share & invite", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(HeroShareButtonStyle())
+
+                Button {
+                    onEdit()
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.white.opacity(0.28))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit group")
             }
-            .buttonStyle(HeroShareButtonStyle())
         }
         .foregroundStyle(.white)
         .padding(28)

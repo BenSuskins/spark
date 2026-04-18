@@ -46,6 +46,28 @@ private func makeDefaults() -> UserDefaults {
     #expect(model.selectedGroup?.id != selected.id)
 }
 
+@Test @MainActor func updateGroupPersistsNameAndEmojiAndUpdatesSelection() async {
+    let repository = FakeGroupRepository()
+    let model = GroupModel(repository: repository, defaults: makeDefaults())
+    await model.createGroup(name: "Old Name", emoji: "💞")
+
+    let original = model.selectedGroup!
+    let edited = Group(
+        id: original.id,
+        name: "New Name",
+        emoji: "🔥",
+        createdDate: original.createdDate,
+        ownerIdentifier: original.ownerIdentifier
+    )
+    await model.updateGroup(edited)
+
+    #expect(model.groups.count == 1)
+    #expect(model.groups.first?.name == "New Name")
+    #expect(model.groups.first?.emoji == "🔥")
+    #expect(model.selectedGroup?.name == "New Name")
+    #expect(model.selectedGroup?.emoji == "🔥")
+}
+
 @Test @MainActor func selectGroupUpdatesSelection() async {
     let repository = FakeGroupRepository()
     let model = GroupModel(repository: repository, defaults: makeDefaults())
