@@ -31,7 +31,7 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
         }
     }
 
-    func createGroup(name: String) async -> Result<Group, SparkError> {
+    func createGroup(name: String, emoji: String) async -> Result<Group, SparkError> {
         let userResult = await manager.currentUserIdentifier()
         guard case .success(let userIdentifier) = userResult else {
             return .failure(.notAuthenticated)
@@ -49,6 +49,7 @@ final class CloudKitGroupRepository: GroupRepository, @unchecked Sendable {
         let group = Group(
             id: groupId,
             name: name,
+            emoji: emoji,
             createdDate: .now,
             ownerIdentifier: userIdentifier
         )

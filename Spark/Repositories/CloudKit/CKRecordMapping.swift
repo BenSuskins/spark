@@ -23,9 +23,12 @@ extension Group {
               let ownerIdentifier = record["ownerIdentifier"] as? String
         else { return nil }
 
+        let emoji = (record["emoji"] as? String) ?? "💞"
+
         self.init(
             id: record.recordID.recordName,
             name: name,
+            emoji: emoji,
             createdDate: createdDate,
             ownerIdentifier: ownerIdentifier
         )
@@ -35,6 +38,7 @@ extension Group {
         let recordID = CKRecord.ID(recordName: id, zoneID: zoneID)
         let record = CKRecord(recordType: RecordType.group, recordID: recordID)
         record["name"] = name
+        record["emoji"] = emoji
         record["createdDate"] = createdDate
         record["ownerIdentifier"] = ownerIdentifier
         return record

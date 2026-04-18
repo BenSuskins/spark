@@ -31,8 +31,8 @@ final class CachedGroupRepository: GroupRepository, @unchecked Sendable {
         return .success(cached)
     }
 
-    func createGroup(name: String) async -> Result<Group, SparkError> {
-        let remoteResult = await remote.createGroup(name: name)
+    func createGroup(name: String, emoji: String) async -> Result<Group, SparkError> {
+        let remoteResult = await remote.createGroup(name: name, emoji: emoji)
 
         if case .success(let group) = remoteResult {
             await cacheGroup(group, syncStatus: .synced)

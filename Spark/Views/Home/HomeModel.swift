@@ -19,34 +19,25 @@ final class HomeModel {
         self.currentUserIdentifier = currentUserIdentifier
     }
 
-    func loadDates(for groupIdentifiers: [String]) async {
+    func loadDates(for groupIdentifier: String) async {
         isLoading = true
         error = nil
 
-        let targetGroups: [String]
-        if let selected = selectedGroupIdentifier {
-            targetGroups = [selected]
-        } else {
-            targetGroups = groupIdentifiers
+        async let upcomingResult = repository.fetchUpcomingDates(for: groupIdentifier)
+        async let pastResult = repository.fetchPastDates(for: groupIdentifier)
+
+        var loadedUpcoming: [PlannedDate] = []
+        var loadedPast: [PlannedDate] = []
+
+        if case .success(let dates) = await upcomingResult {
+            loadedUpcoming = dates
+        }
+        if case .success(let dates) = await pastResult {
+            loadedPast = dates
         }
 
-        var allUpcoming: [PlannedDate] = []
-        var allPast: [PlannedDate] = []
-
-        for groupIdentifier in targetGroups {
-            let upcomingResult = await repository.fetchUpcomingDates(for: groupIdentifier)
-            if case .success(let dates) = upcomingResult {
-                allUpcoming.append(contentsOf: dates)
-            }
-
-            let pastResult = await repository.fetchPastDates(for: groupIdentifier)
-            if case .success(let dates) = pastResult {
-                allPast.append(contentsOf: dates)
-            }
-        }
-
-        upcomingDates = allUpcoming.sorted { $0.date < $1.date }
-        pastDates = allPast.sorted { $0.date > $1.date }
+        upcomingDates = loadedUpcoming.sorted { $0.date < $1.date }
+        pastDates = loadedPast.sorted { $0.date > $1.date }
         isLoading = false
     }
 

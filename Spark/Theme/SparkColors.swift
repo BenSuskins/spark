@@ -1,41 +1,57 @@
 import SwiftUI
 import UIKit
 
+/// Semantic color tokens for Spark. Every view-layer color must come from here.
+///
+/// The accent is a single warm coral in the sunset family, used for interactive
+/// and branded elements only. Everything else defers to the system so we get
+/// correct dark-mode and high-contrast behavior for free.
 enum SparkColors {
+    // MARK: Accent
+
+    /// The single warm accent. Coral in light mode, a slightly brighter coral
+    /// in dark mode for contrast against `.black` backgrounds.
     static let accent = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0x29/255, green: 0x97/255, blue: 0xFF/255, alpha: 1) // #2997ff
-            : UIColor(red: 0x00/255, green: 0x71/255, blue: 0xE3/255, alpha: 1) // #0071e3
+            ? UIColor(red: 1.00, green: 0.45, blue: 0.42, alpha: 1) // warm coral, brighter
+            : UIColor(red: 0.98, green: 0.36, blue: 0.36, alpha: 1) // warm coral
     })
 
-    static let primaryText = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? .white
-            : UIColor(red: 0x1D/255, green: 0x1D/255, blue: 0x1F/255, alpha: 1) // #1d1d1f
-    })
+    /// A muted accent for tinted fills (selected chip background, celebratory row).
+    /// Intended to be layered at the natural opacity \(\~0.12\) on a surface.
+    static let accentMuted = accent.opacity(0.12)
 
-    static let secondaryText = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(white: 1, alpha: 0.56)
-            : UIColor(white: 0, alpha: 0.56)
-    })
+    // MARK: Surfaces
 
-    static let background = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .black : .white
-    })
+    static let background = Color(.systemBackground)
+    static let surface = Color(.secondarySystemBackground)
+    static let surfaceElevated = Color(.tertiarySystemBackground)
 
-    static let secondaryBackground = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0x1C/255, green: 0x1C/255, blue: 0x1E/255, alpha: 1) // #1c1c1e
-            : UIColor(red: 0xF5/255, green: 0xF5/255, blue: 0xF7/255, alpha: 1) // #f5f5f7
-    })
+    // MARK: Text
 
-    static let cardBackground = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0x2A/255, green: 0x2A/255, blue: 0x2D/255, alpha: 1) // #2a2a2d
-            : UIColor(red: 0xF5/255, green: 0xF5/255, blue: 0xF7/255, alpha: 1) // #f5f5f7
-    })
+    static let textPrimary = Color(.label)
+    static let textSecondary = Color(.secondaryLabel)
+    static let textTertiary = Color(.tertiaryLabel)
+
+    // MARK: Semantic
 
     static let success = Color.green
     static let destructive = Color.red
+
+    /// Used for "not tonight" / soft-decline actions. Never red.
+    static let soft = Color(.tertiaryLabel)
+
+    // MARK: Deprecated
+
+    @available(*, deprecated, renamed: "textPrimary")
+    static var primaryText: Color { textPrimary }
+
+    @available(*, deprecated, renamed: "textSecondary")
+    static var secondaryText: Color { textSecondary }
+
+    @available(*, deprecated, renamed: "surface")
+    static var secondaryBackground: Color { surface }
+
+    @available(*, deprecated, renamed: "surface")
+    static var cardBackground: Color { surface }
 }

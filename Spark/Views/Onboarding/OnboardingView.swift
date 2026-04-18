@@ -1,19 +1,25 @@
 import SwiftUI
 
+/// 3-page onboarding flow:
+///  1. Welcome
+///  2. Permissions — calendar, notifications, location on a single page
+///  3. Create group — emoji + name, with optional invite
 struct OnboardingView: View {
     let groupRepository: GroupRepository
     let calendarService: CalendarService
     let notificationService: NotificationService
     let locationService: LocationService
-    let onComplete: (CalendarModel, NotificationModel, LocationModel) -> Void
+    let onComplete: (CalendarModel, NotificationModel, LocationModel, Group?) -> Void
 
     @State private var step = 0
     @State private var calendarModel: CalendarModel
     @State private var notificationModel: NotificationModel
     @State private var locationModel: LocationModel
     @State private var groupName = "Our Dates"
+    @State private var groupEmoji = "💞"
     @State private var isCreatingGroup = false
     @State private var groupError: SparkError?
+    @State private var createdGroup: Group?
     @State private var shareURL: URL?
     @State private var showingShareSheet = false
 
@@ -22,7 +28,7 @@ struct OnboardingView: View {
         calendarService: CalendarService,
         notificationService: NotificationService,
         locationService: LocationService,
-        onComplete: @escaping (CalendarModel, NotificationModel, LocationModel) -> Void
+        onComplete: @escaping (CalendarModel, NotificationModel, LocationModel, Group?) -> Void
     ) {
         self.groupRepository = groupRepository
         self.calendarService = calendarService
@@ -40,9 +46,10 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .animation(.easeInOut, value: step)
 
-            OnboardingPageIndicator(count: 5, current: step)
+            OnboardingPageIndicator(count: 3, current: step)
                 .padding(.bottom, 12)
         }
+        .background(SparkColors.background.ignoresSafeArea())
         .sheet(isPresented: $showingShareSheet, onDismiss: complete) {
             if let url = shareURL {
                 ShareSheet(url: url)
@@ -54,20 +61,20 @@ struct OnboardingView: View {
     private var currentPage: some View {
         switch step {
         case 0:
-            OnboardingWelcomePage { nextStep() }
+            OnboardingWelcomePage { advance() }
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
         case 1:
-            OnboardingNotificationsPage(model: notificationModel) { nextStep() }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-        case 2:
-            OnboardingCalendarPage(model: calendarModel) { nextStep() }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-        case 3:
-            OnboardingLocationPage(model: locationModel) { nextStep() }
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+            OnboardingPermissionsPage(
+                calendarModel: calendarModel,
+                notificationModel: notificationModel,
+                locationModel: locationModel,
+                onContinue: { advance() }
+            )
+            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
         default:
             OnboardingGroupPage(
                 groupName: $groupName,
+                groupEmoji: $groupEmoji,
                 isCreating: isCreatingGroup,
                 error: groupError,
                 onCreateAndInvite: createAndInvite,
@@ -78,7 +85,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func nextStep() {
+    private func advance() {
         withAnimation { step += 1 }
     }
 
@@ -101,16 +108,17 @@ struct OnboardingView: View {
     }
 
     private func performCreate(then action: @escaping (Group) async -> Void) async {
-        let trimmed = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
 
         isCreatingGroup = true
         groupError = nil
 
-        let result = await groupRepository.createGroup(name: trimmed)
+        let result = await groupRepository.createGroup(name: trimmedName, emoji: groupEmoji)
 
         switch result {
         case .success(let group):
+            createdGroup = group
             await action(group)
         case .failure(let error):
             groupError = error
@@ -119,7 +127,7 @@ struct OnboardingView: View {
     }
 
     private func complete() {
-        onComplete(calendarModel, notificationModel, locationModel)
+        onComplete(calendarModel, notificationModel, locationModel, createdGroup)
     }
 }
 
@@ -132,26 +140,26 @@ private struct OnboardingWelcomePage: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 28) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 80))
-                    .foregroundStyle(SparkColors.accent)
-                    .symbolRenderingMode(.hierarchical)
+            VStack(spacing: 24) {
+                Text("✨")
+                    .font(.system(size: 88))
 
                 VStack(spacing: 12) {
                     Text("Welcome to Spark")
-                        .sparkDisplayHero()
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(SparkColors.textPrimary)
+                        .multilineTextAlignment(.center)
 
                     Text("Plan unforgettable dates together.\nGet ideas, vote, and make memories.")
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(SparkColors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             }
 
             Spacer()
 
-            Button("Get Started", action: onContinue)
+            Button("Get started", action: onContinue)
                 .buttonStyle(SparkPrimaryButtonStyle())
                 .padding(.bottom, 56)
         }
@@ -159,193 +167,114 @@ private struct OnboardingWelcomePage: View {
     }
 }
 
-// MARK: - Notifications
+// MARK: - Permissions (combined)
 
-private struct OnboardingNotificationsPage: View {
-    let model: NotificationModel
+private struct OnboardingPermissionsPage: View {
+    let calendarModel: CalendarModel
+    let notificationModel: NotificationModel
+    let locationModel: LocationModel
     let onContinue: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 28) {
-                Image(systemName: "bell.badge.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(SparkColors.accent)
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(spacing: 12) {
-                    Text("Stay in the Loop")
-                        .sparkDisplayHero()
-
-                    Text("Get reminders before upcoming dates and prompts to write about your memories.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                if model.isAuthorized {
-                    Label("Notifications enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(SparkColors.success)
-                        .font(.headline)
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Set you up")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(SparkColors.textPrimary)
+                Text("Grant access so Spark can do its best work. You can change these anytime.")
+                    .font(.body)
+                    .foregroundStyle(SparkColors.textSecondary)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 24)
 
             VStack(spacing: 12) {
-                if !model.isAuthorized {
-                    Button("Enable Notifications") {
-                        Task {
-                            await model.requestAuthorization()
-                            onContinue()
-                        }
-                    }
-                    .buttonStyle(SparkPrimaryButtonStyle())
-                } else {
-                    Button("Continue", action: onContinue)
-                        .buttonStyle(SparkPrimaryButtonStyle())
-                }
-
-                if !model.isAuthorized {
-                    Button("Skip", action: onContinue)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                PermissionRow(
+                    emoji: "🔔",
+                    title: "Notifications",
+                    subtitle: "Gentle nudges before upcoming dates.",
+                    isEnabled: notificationModel.isAuthorized,
+                    action: { Task { await notificationModel.requestAuthorization() } }
+                )
+                PermissionRow(
+                    emoji: "📆",
+                    title: "Calendar",
+                    subtitle: "Add planned dates to your calendar automatically.",
+                    isEnabled: calendarModel.isOptedIn,
+                    action: { Task { await calendarModel.requestAccess() } }
+                )
+                PermissionRow(
+                    emoji: "📍",
+                    title: "Location",
+                    subtitle: "Find venues and date spots near you.",
+                    isEnabled: locationModel.isAuthorized,
+                    action: { Task { await locationModel.requestAuthorization() } }
+                )
             }
-            .padding(.bottom, 56)
+            .padding(.top, 28)
+
+            Spacer()
+
+            Button("Continue", action: onContinue)
+                .buttonStyle(SparkPrimaryButtonStyle())
+                .padding(.bottom, 56)
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 24)
     }
 }
 
-// MARK: - Calendar
-
-private struct OnboardingCalendarPage: View {
-    let model: CalendarModel
-    let onContinue: () -> Void
+private struct PermissionRow: View {
+    let emoji: String
+    let title: String
+    let subtitle: String
+    let isEnabled: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        HStack(spacing: 14) {
+            Text(emoji)
+                .font(.system(size: 28))
+                .frame(width: 52, height: 52)
+                .background(SparkColors.accentMuted)
+                .clipShape(Circle())
 
-            VStack(spacing: 28) {
-                Image(systemName: "calendar.badge.plus")
-                    .font(.system(size: 80))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(SparkColors.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(SparkColors.textSecondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            if isEnabled {
+                Label("On", systemImage: "checkmark.circle.fill")
+                    .labelStyle(.iconOnly)
+                    .font(.title3)
+                    .foregroundStyle(SparkColors.success)
+            } else {
+                Button("Enable", action: action)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(SparkColors.accent)
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(spacing: 12) {
-                    Text("Sync with Calendar")
-                        .sparkDisplayHero()
-
-                    Text("Automatically add planned dates to your calendar so you never miss one.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                if model.isOptedIn {
-                    Label("Calendar access enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(SparkColors.success)
-                        .font(.headline)
-                }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(SparkColors.accentMuted)
+                    .clipShape(Capsule())
             }
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                if !model.isOptedIn {
-                    Button("Enable Calendar") {
-                        Task {
-                            await model.requestAccess()
-                            onContinue()
-                        }
-                    }
-                    .buttonStyle(SparkPrimaryButtonStyle())
-                } else {
-                    Button("Continue", action: onContinue)
-                        .buttonStyle(SparkPrimaryButtonStyle())
-                }
-
-                if !model.isOptedIn {
-                    Button("Skip", action: onContinue)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.bottom, 56)
         }
-        .padding(.horizontal, 32)
+        .padding(16)
+        .sparkCard(cornerRadius: 20)
     }
 }
 
-// MARK: - Location
-
-private struct OnboardingLocationPage: View {
-    let model: LocationModel
-    let onContinue: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 28) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(SparkColors.accent)
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(spacing: 12) {
-                    Text("Nearby Venues")
-                        .sparkDisplayHero()
-
-                    Text("Allow location access to discover restaurants, activities, and date spots near you.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                if model.isAuthorized {
-                    Label("Location access enabled", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(SparkColors.success)
-                        .font(.headline)
-                }
-            }
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                if !model.isAuthorized {
-                    Button("Enable Location") {
-                        Task {
-                            await model.requestAuthorization()
-                            onContinue()
-                        }
-                    }
-                    .buttonStyle(SparkPrimaryButtonStyle())
-                } else {
-                    Button("Continue", action: onContinue)
-                        .buttonStyle(SparkPrimaryButtonStyle())
-                }
-
-                if !model.isAuthorized {
-                    Button("Skip", action: onContinue)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.bottom, 56)
-        }
-        .padding(.horizontal, 32)
-    }
-}
-
-// MARK: - Create Group
+// MARK: - Create group
 
 private struct OnboardingGroupPage: View {
     @Binding var groupName: String
+    @Binding var groupEmoji: String
     let isCreating: Bool
     let error: SparkError?
     let onCreateAndInvite: () -> Void
@@ -358,36 +287,35 @@ private struct OnboardingGroupPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer()
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Create your group")
+                    .font(.largeTitle.weight(.bold))
+                    .foregroundStyle(SparkColors.textPrimary)
+                Text("Give it an emoji and a name — you can change these later.")
+                    .font(.body)
+                    .foregroundStyle(SparkColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 24)
 
-            VStack(spacing: 28) {
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(SparkColors.accent)
-                    .symbolRenderingMode(.hierarchical)
+            VStack(spacing: 20) {
+                EmojiPickerChip(emoji: $groupEmoji)
 
-                VStack(spacing: 12) {
-                    Text("Create Your Group")
-                        .sparkDisplayHero()
-
-                    Text("Name your group and invite your partner to start planning together.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                SparkFormField(title: "Group name") {
+                    TextField("Our Dates", text: $groupName)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(SparkColors.textPrimary)
+                        .textInputAutocapitalization(.words)
                 }
-
-                TextField("Group name", text: $groupName)
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.center)
-                    .font(.headline)
 
                 if let error {
                     Text(error.localizedDescription)
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(SparkColors.destructive)
                         .multilineTextAlignment(.center)
                 }
             }
+            .padding(.top, 28)
 
             Spacer()
 
@@ -399,45 +327,27 @@ private struct OnboardingGroupPage: View {
                         if isCreating {
                             ProgressView().tint(.white)
                         } else {
-                            Text("Create & Invite Partner")
-                                .font(.headline)
+                            Text("Create & invite partner")
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(canCreate ? SparkColors.accent : Color.secondary.opacity(0.3))
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
                 }
+                .buttonStyle(SparkPrimaryButtonStyle())
                 .disabled(!canCreate)
 
-                Button {
-                    onCreate()
-                } label: {
-                    Text("Create Without Inviting")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .disabled(!canCreate)
+                Button("Create without inviting", action: onCreate)
+                    .buttonStyle(SparkGhostButtonStyle())
+                    .disabled(!canCreate)
 
-                Divider()
-                    .padding(.vertical, 4)
-
-                Button {
-                    onJoinInstead()
-                } label: {
-                    Text("I've been invited to a group")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.accentColor)
-                }
+                Button("I've been invited to a group", action: onJoinInstead)
+                    .buttonStyle(SparkGhostButtonStyle())
             }
             .padding(.bottom, 56)
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 24)
     }
 }
 
-// MARK: - Shared Components
+// MARK: - Page indicator
 
 private struct OnboardingPageIndicator: View {
     let count: Int
@@ -447,7 +357,7 @@ private struct OnboardingPageIndicator: View {
         HStack(spacing: 8) {
             ForEach(0..<count, id: \.self) { index in
                 Capsule()
-                    .fill(index == current ? Color.primary : Color.secondary.opacity(0.3))
+                    .fill(index == current ? SparkColors.accent : SparkColors.textTertiary.opacity(0.4))
                     .frame(width: index == current ? 20 : 8, height: 8)
                     .animation(.easeInOut, value: current)
             }

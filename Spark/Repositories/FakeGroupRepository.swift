@@ -8,10 +8,11 @@ final class FakeGroupRepository: GroupRepository, @unchecked Sendable {
         .success(groups)
     }
 
-    func createGroup(name: String) async -> Result<Group, SparkError> {
+    func createGroup(name: String, emoji: String) async -> Result<Group, SparkError> {
         let group = Group(
             id: UUID().uuidString,
             name: name,
+            emoji: emoji,
             createdDate: .now,
             ownerIdentifier: "current-user"
         )
@@ -35,6 +36,7 @@ final class FakeGroupRepository: GroupRepository, @unchecked Sendable {
         let group = Group(
             id: UUID().uuidString,
             name: "Shared Group",
+            emoji: "💞",
             createdDate: .now,
             ownerIdentifier: "other-user"
         )

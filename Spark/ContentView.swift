@@ -50,13 +50,12 @@ struct ContentView: View {
     var body: some View {
         TabView {
             Tab("Home", systemImage: "house") {
-                if let homeModel, let groupModel {
+                if let homeModel, let groupModel, let currentGroupId = groupModel.selectedGroupIdentifier {
                     HomeTab(
                         model: homeModel,
                         repository: dateRepository,
                         venueSearchService: venueSearchService,
-                        groupIdentifiers: groupModel.groupIdentifiers,
-                        groupPickerMenu: groupPickerMenu
+                        groupIdentifier: currentGroupId
                     )
                 }
             }
@@ -73,8 +72,18 @@ struct ContentView: View {
                         model: ideasModel,
                         homeModel: homeModel,
                         calendarModel: calendarModel,
+                        notificationModel: notificationModel
+                    )
+                }
+            }
+
+            Tab("Groups", systemImage: "person.2.fill") {
+                if let groupModel {
+                    GroupsTab(
+                        model: groupModel,
+                        calendarModel: calendarModel,
                         notificationModel: notificationModel,
-                        groupPickerMenu: groupPickerMenu
+                        locationModel: locationModel
                     )
                 }
             }
@@ -88,10 +97,13 @@ struct ContentView: View {
                 calendarService: calendarService,
                 notificationService: notificationService,
                 locationService: locationService
-            ) { completedCalendar, completedNotif, completedLocation in
+            ) { completedCalendar, completedNotif, completedLocation, completedGroup in
                 calendarModel = completedCalendar
                 notificationModel = completedNotif
                 locationModel = completedLocation
+                if let completedGroup {
+                    groupModel?.selectGroup(completedGroup)
+                }
                 hasCompletedOnboarding = true
             }
         }
@@ -104,13 +116,6 @@ struct ContentView: View {
 
             let gm = GroupModel(repository: groupRepository)
             await gm.loadGroups()
-
-            // Only auto-create a fallback group for returning users if all groups were deleted.
-            // New users create their group during onboarding.
-            if gm.groups.isEmpty && hasCompletedOnboarding {
-                await gm.createGroup(name: "My Dates")
-            }
-
             groupModel = gm
 
             if calendarModel == nil {
@@ -166,20 +171,13 @@ struct ContentView: View {
         }
     }
 
-    private var groupPickerMenu: GroupPickerMenu? {
-        guard let groupModel else { return nil }
-        return GroupPickerMenu(model: groupModel, calendarModel: calendarModel, notificationModel: notificationModel, locationModel: locationModel)
-    }
-
     private func createModels() {
-        guard let groupModel else { return }
-
-        let groupId = groupModel.selectedGroupIdentifier ?? groupModel.groupIdentifiers.first ?? "default"
+        guard let groupModel, let groupId = groupModel.selectedGroupIdentifier else { return }
 
         if homeModel == nil {
             homeModel = HomeModel(repository: dateRepository, currentUserIdentifier: currentUserIdentifier)
         }
-        homeModel?.selectedGroupIdentifier = groupModel.selectedGroupIdentifier
+        homeModel?.selectedGroupIdentifier = groupId
 
         if ideasModel == nil {
             ideasModel = IdeasModel(
@@ -200,11 +198,9 @@ struct ContentView: View {
     }
 
     private func updateGroupSelection() {
-        guard let groupModel else { return }
+        guard let groupModel, let groupId = groupModel.selectedGroupIdentifier else { return }
 
-        let groupId = groupModel.selectedGroupIdentifier ?? groupModel.groupIdentifiers.first ?? "default"
-
-        homeModel?.selectedGroupIdentifier = groupModel.selectedGroupIdentifier
+        homeModel?.selectedGroupIdentifier = groupId
         ideasModel?.updateGroup(groupId)
         discoverModel?.updateGroup(groupId)
     }

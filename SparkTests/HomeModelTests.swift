@@ -10,7 +10,7 @@ import Testing
 
     let model = HomeModel(repository: repository, currentUserIdentifier: "u1")
     model.selectedGroupIdentifier = "g1"
-    await model.loadDates(for: ["g1"])
+    await model.loadDates(for: "g1")
 
     #expect(model.upcomingDates.count == 1)
     #expect(model.upcomingDates.first?.title == "Dinner")
@@ -23,24 +23,10 @@ import Testing
 
     let model = HomeModel(repository: repository, currentUserIdentifier: "u1")
     model.selectedGroupIdentifier = "g1"
-    await model.loadDates(for: ["g1"])
+    await model.loadDates(for: "g1")
 
     #expect(model.pastDates.count == 1)
     #expect(model.pastDates.first?.title == "Beach day")
-}
-
-@Test @MainActor func loadAllGroupsAggregatesDates() async {
-    let repository = FakeDateRepository()
-    let date1 = PlannedDate(id: "d1", title: "Group 1 date", date: .now.addingTimeInterval(86400), status: .planned, groupIdentifier: "g1")
-    let date2 = PlannedDate(id: "d2", title: "Group 2 date", date: .now.addingTimeInterval(172800), status: .planned, groupIdentifier: "g2")
-    _ = await repository.createPlannedDate(date1, in: "g1")
-    _ = await repository.createPlannedDate(date2, in: "g2")
-
-    let model = HomeModel(repository: repository, currentUserIdentifier: "u1")
-    model.selectedGroupIdentifier = nil // All Groups
-    await model.loadDates(for: ["g1", "g2"])
-
-    #expect(model.upcomingDates.count == 2)
 }
 
 @Test @MainActor func upcomingDatesSortedByDateAscending() async {
@@ -52,8 +38,23 @@ import Testing
 
     let model = HomeModel(repository: repository, currentUserIdentifier: "u1")
     model.selectedGroupIdentifier = "g1"
-    await model.loadDates(for: ["g1"])
+    await model.loadDates(for: "g1")
 
     #expect(model.upcomingDates.first?.title == "Sooner")
     #expect(model.upcomingDates.last?.title == "Later")
+}
+
+@Test @MainActor func datesForDifferentGroupAreNotLoaded() async {
+    let repository = FakeDateRepository()
+    let date1 = PlannedDate(id: "d1", title: "Group 1 date", date: .now.addingTimeInterval(86400), status: .planned, groupIdentifier: "g1")
+    let date2 = PlannedDate(id: "d2", title: "Group 2 date", date: .now.addingTimeInterval(172800), status: .planned, groupIdentifier: "g2")
+    _ = await repository.createPlannedDate(date1, in: "g1")
+    _ = await repository.createPlannedDate(date2, in: "g2")
+
+    let model = HomeModel(repository: repository, currentUserIdentifier: "u1")
+    model.selectedGroupIdentifier = "g1"
+    await model.loadDates(for: "g1")
+
+    #expect(model.upcomingDates.count == 1)
+    #expect(model.upcomingDates.first?.title == "Group 1 date")
 }

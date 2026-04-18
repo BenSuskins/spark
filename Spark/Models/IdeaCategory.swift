@@ -20,4 +20,15 @@ enum IdeaCategory: String, CaseIterable, Identifiable, Codable, Sendable {
         case .travel: "airplane"
         }
     }
+
+    var emoji: String {
+        switch self {
+        case .dining: "🍽️"
+        case .outdoors: "🌳"
+        case .entertainment: "🎬"
+        case .adventure: "🧗"
+        case .stayIn: "🛋️"
+        case .travel: "✈️"
+        }
+    }
 }

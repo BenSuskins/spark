@@ -18,34 +18,59 @@ struct AddStepSheet: View {
         self.venueSearchService = venueSearchService
     }
 
+    private var canSave: Bool {
+        !venueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        TextField("Venue name", text: $venueName)
+            ScrollView {
+                VStack(spacing: 20) {
+                    SparkFormField(title: "Venue") {
+                        HStack(spacing: 12) {
+                            TextField("Where are you headed?", text: $venueName)
+                                .textInputAutocapitalization(.words)
+                                .font(.body)
 
-                        if venueSearchService != nil {
-                            Button {
-                                showingVenuePicker = true
-                            } label: {
-                                Image(systemName: "map")
+                            if venueSearchService != nil {
+                                Button {
+                                    showingVenuePicker = true
+                                } label: {
+                                    Image(systemName: "map")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(SparkColors.accent)
+                                        .frame(width: 36, height: 36)
+                                        .background(SparkColors.accentMuted)
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
 
                     if venueCoordinate != nil {
-                        Label("Location selected", systemImage: "mappin.circle.fill")
+                        Label("Location pinned", systemImage: "mappin.circle.fill")
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(SparkColors.success)
-                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                    }
+
+                    SparkFormField(title: "Time") {
+                        DatePicker("", selection: $time, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    SparkFormField(title: "Notes") {
+                        TextField("Anything to remember?", text: $notes, axis: .vertical)
+                            .lineLimit(3...6)
+                            .font(.body)
                     }
                 }
-
-                DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-
-                TextField("Notes (optional)", text: $notes, axis: .vertical)
-                    .lineLimit(3)
+                .padding(16)
             }
+            .background(SparkColors.background)
             .navigationTitle("Add Stop")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -69,7 +94,7 @@ struct AddStepSheet: View {
                             }
                         }
                     }
-                    .disabled(venueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!canSave)
                 }
             }
             .sheet(isPresented: $showingVenuePicker) {
@@ -81,7 +106,7 @@ struct AddStepSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .alert("Failed to Add Stop", isPresented: $showingError) {
             Button("OK") { }
         } message: {
