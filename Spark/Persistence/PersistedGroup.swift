@@ -5,7 +5,7 @@ import SwiftData
 final class PersistedGroup {
     var identifier: String
     var name: String
-    var emoji: String
+    var emoji: String?
     var createdDate: Date
     var ownerIdentifier: String
     var syncStatus: String
@@ -41,7 +41,7 @@ final class PersistedGroup {
         Group(
             id: identifier,
             name: name,
-            emoji: emoji,
+            emoji: emoji ?? "💞",
             createdDate: createdDate,
             ownerIdentifier: ownerIdentifier
         )
